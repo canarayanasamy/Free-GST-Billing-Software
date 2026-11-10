@@ -44,7 +44,7 @@ async function renderPng(size, purpose) {
     const innerPng = await sharp(svgBuffer).resize(inner, inner).png().toBuffer();
     const gap = Math.round((size - inner) / 2);
     return sharp({
-      create: { width: size, height: size, channels: 4, background: '#1e40af' },
+      create: { width: size, height: size, channels: 4, background: '#ffffff' },
     })
       .composite([{ input: innerPng, top: gap, left: gap }])
       .png()
@@ -105,9 +105,9 @@ const ICO_OUT = path.join(ROOT, 'release-templates', '_system-scripts', 'app-ico
 // pixels tall. Kept beside favicon.svg rather than replacing it: the web app
 // is never rendered at 16px.
 const SIMPLE_SVG = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="13" fill="#2563eb"/>
+  <rect width="64" height="64" rx="13" fill="#2b3fa6"/>
   <text x="32" y="47" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif"
-        font-weight="700" font-size="44" fill="#fff">B</text>
+        font-weight="700" font-size="44" fill="#fff">T</text>
 </svg>`);
 
 // An uncompressed icon image: a BITMAPINFOHEADER whose height is doubled

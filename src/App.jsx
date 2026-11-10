@@ -562,7 +562,7 @@ function App() {
   // The window's title bar shows the page and the business, like a desktop
   // program ("Invoices - Dice Codes"), not the long search-engine title.
   const pageLabel = (NAV_EXTRAS[currentView] || menu.find(m => m.id === currentView))?.label;
-  const windowName = String(brand?.businessName || '').trim() || 'Free GST Billing';
+  const windowName = String(brand?.businessName || '').trim() || 'The Entry Makers';
   // v1.10.84 - and says so when an update is waiting (the taskbar shows it too).
   const updateNote = updateBannerVisible ? ` (update ${updateInfo.latest} available)` : '';
   useEffect(() => {
@@ -797,9 +797,9 @@ function App() {
         background: darkMode ? '#0f172a' : '#f0f2f5', color: darkMode ? '#e2e8f0' : '#0f172a',
       }}>
         <img src="/icons/icon-192.png" alt="" width={72} height={72} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-        <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>Free GST Billing</h2>
+        <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>The Entry Makers</h2>
         <div className="server-down-waiting"><div className="server-down-spinner" /><span>Starting again…</span></div>
-        <p style={{ position: 'absolute', bottom: 28, margin: 0, fontSize: '0.8rem', color: darkMode ? '#94a3b8' : '#64748b' }}>by DiceCodes</p>
+        <p style={{ position: 'absolute', bottom: 28, margin: 0, fontSize: '0.8rem', color: darkMode ? '#94a3b8' : '#64748b' }}>GST Billing</p>
       </div>
     );
   }
@@ -809,7 +809,7 @@ function App() {
       <div className="server-down-overlay">
         <div className="server-down-modal">
           <FileText size={48} color="#3b82f6" />
-          <h2>Free GST Billing Software Needs a Quick Start <HelpButton title="Needs a Quick Start" doc="shortcuts#app-not-running" size={16} /></h2>
+          <h2>The Entry Makers Needs a Quick Start <HelpButton title="Needs a Quick Start" doc="shortcuts#app-not-running" size={16} /></h2>
           <p>
             Your data is <strong>100% safe</strong> on your computer — nothing is lost.
             The app just needs to be started once.
@@ -825,13 +825,13 @@ function App() {
           <div className="server-down-steps">
             <p className="server-down-hint">How to start it:</p>
             <ol>
-              <li>Double-click the <strong>Free GST Billing</strong> icon on your Desktop (the blue <strong>B</strong>)</li>
-              <li>Or search <strong>"Free GST Billing"</strong> in the Start Menu</li>
+              <li>Double-click the <strong>The Entry Makers</strong> icon on your Desktop (the blue <strong>B</strong>)</li>
+              <li>Or search <strong>"The Entry Makers"</strong> in the Start Menu</li>
             </ol>
             {/* v1.10.83 - an icon made by the browser ("Install as Desktop App",
                 removed in this version) opens this window but cannot start the
                 app. Say so, or people keep clicking it. */}
-            <p className="server-down-hint">Opened this from a Chrome or Edge app icon? That icon cannot start the app. Use the Free GST Billing icon instead; you can remove the other one (right-click it, then Uninstall).</p>
+            <p className="server-down-hint">Opened this from a Chrome or Edge app icon? That icon cannot start the app. Use the The Entry Makers icon instead; you can remove the other one (right-click it, then Uninstall).</p>
           </div>
           <p className="server-down-safe">All your invoices, clients, and data are safely stored on your computer. They are never deleted or shared.</p>
           <div className="server-down-waiting">
@@ -904,13 +904,13 @@ function App() {
           <div className={`sidebar-logo${ownBrand && brand.logo ? ' sidebar-logo-own' : ''}`}>
             {ownBrand && brand.logo ? <img src={brand.logo} alt="" />
               : ownBrand ? <span className="sidebar-logo-letter">{brand.businessName.trim().charAt(0).toUpperCase()}</span>
-                : <FileText size={22} />}
+                : <img src="/icons/icon-192.png" alt="" style={{ width: '100%', height: '100%', borderRadius: 'inherit' }} />}
           </div>
           {/* "by DiceCodes" always stays, under their name too. "Free forever" is
               in the top bar; on a phone (no top bar) it stays here. */}
           <div className="sidebar-brand-text">
-            <h2 className={`sidebar-title${ownBrand ? ' sidebar-title-own' : ''}`} title={ownBrand ? `${brand.businessName} - Free GST Billing` : undefined}>{ownBrand ? brand.businessName : 'GST Billing'}</h2>
-            <p className="sidebar-subtitle" title="Free forever. Works on this computer, even offline. No tracking, no ads."><span className="sidebar-free sidebar-free-phone">Free forever<br /></span>by DiceCodes</p>
+            <h2 className={`sidebar-title${ownBrand ? ' sidebar-title-own' : ''}`} title={ownBrand ? `${brand.businessName} - The Entry Makers` : undefined}>{ownBrand ? brand.businessName : 'The Entry Makers'}</h2>
+            <p className="sidebar-subtitle" title="Free forever. Works on this computer, even offline. No tracking, no ads."><span className="sidebar-free sidebar-free-phone">Free forever<br /></span>{ownBrand ? 'by The Entry Makers' : 'GST Billing'}</p>
           </div>
           {/* Auto-hide as a ☰ button (was a text checkbox): pressed = the menu
               shrinks to icons and opens when pointed at. */}
@@ -1313,7 +1313,7 @@ function App() {
               {updateInfo.releaseNotes || (
                 <span style={{ color: 'var(--text-muted)' }}>
                   No release notes available — see the full changelog at{' '}
-                  <a href={updateInfo.releaseUrl || 'https://github.com/IamRamgarhia/Free-GST-Billing-Software/releases'} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>GitHub Releases</a>.
+                  <a href={updateInfo.releaseUrl || 'https://github.com/canarayanasamy/Free-GST-Billing-Software/releases'} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>GitHub Releases</a>.
                 </span>
               )}
             </div>

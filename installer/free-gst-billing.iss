@@ -60,13 +60,13 @@
 
 [Setup]
 AppId={code:GetAppId}
-AppName=Free GST Billing
+AppName=The Entry Makers
 AppVersion={#AppVersion}
-AppVerName=Free GST Billing {#AppVersion}
-AppPublisher=DiceCodes
-AppPublisherURL=https://github.com/IamRamgarhia/Free-GST-Billing-Software
-AppSupportURL=https://github.com/IamRamgarhia/Free-GST-Billing-Software/issues
-AppUpdatesURL=https://github.com/IamRamgarhia/Free-GST-Billing-Software/releases
+AppVerName=The Entry Makers {#AppVersion}
+AppPublisher=The Entry Makers
+AppPublisherURL=https://github.com/canarayanasamy/Free-GST-Billing-Software
+AppSupportURL=https://github.com/canarayanasamy/Free-GST-Billing-Software/issues
+AppUpdatesURL=https://github.com/canarayanasamy/Free-GST-Billing-Software/releases
 DefaultDirName={code:GetAppDir}
 UsePreviousAppDir=no
 UsePreviousLanguage=no
@@ -79,7 +79,7 @@ OutputDir={#OutputDir}
 OutputBaseFilename=Free-GST-Billing-Windows-Setup
 SetupIconFile={#StageDir}\app-icon.ico
 UninstallDisplayIcon={app}\app-icon.ico
-UninstallDisplayName=Free GST Billing
+UninstallDisplayName=The Entry Makers
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
@@ -89,12 +89,12 @@ MinVersion=10.0
 CloseApplications=no
 RestartApplications=no
 VersionInfoVersion={#AppVersion}
-VersionInfoProductName=Free GST Billing
-VersionInfoCompany=DiceCodes
+VersionInfoProductName=The Entry Makers
+VersionInfoCompany=The Entry Makers
 
 [Tasks]
-Name: desktopicon; Description: "Put a Free GST Billing icon on the Desktop"
-Name: startup; Description: "Open Free GST Billing when Windows starts"; Flags: unchecked
+Name: desktopicon; Description: "Put a The Entry Makers icon on the Desktop"
+Name: startup; Description: "Open The Entry Makers when Windows starts"; Flags: unchecked
 
 [Files]
 ; First, so Setup can unpack them quickly to look for an earlier copy.
@@ -113,13 +113,13 @@ Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs c
 ; WebView2 (without WebView2: Edge's app window, as before). The same
 ; AppUserModelID as the window, so a pinned taskbar icon is this program.
 [Icons]
-Name: "{code:IconDir|programs}\Free GST Billing"; Filename: "{app}\Free GST Billing.exe"; WorkingDir: "{app}"; IconFilename: "{app}\app-icon.ico"; Comment: "Free GST Billing Software"; AppUserModelID: "{code:GetAumid}"
-Name: "{code:IconDir|desktop}\Free GST Billing"; Filename: "{app}\Free GST Billing.exe"; WorkingDir: "{app}"; IconFilename: "{app}\app-icon.ico"; Comment: "Free GST Billing Software"; AppUserModelID: "{code:GetAumid}"; Tasks: desktopicon; Check: DesktopOK
+Name: "{code:IconDir|programs}\The Entry Makers"; Filename: "{app}\Free GST Billing.exe"; WorkingDir: "{app}"; IconFilename: "{app}\app-icon.ico"; Comment: "The Entry Makers GST Billing"; AppUserModelID: "{code:GetAumid}"
+Name: "{code:IconDir|desktop}\The Entry Makers"; Filename: "{app}\Free GST Billing.exe"; WorkingDir: "{app}"; IconFilename: "{app}\app-icon.ico"; Comment: "The Entry Makers GST Billing"; AppUserModelID: "{code:GetAumid}"; Tasks: desktopicon; Check: DesktopOK
 ; At Windows start-up: the server starts and the app waits near the clock (/tray).
-Name: "{code:IconDir|startup}\Free GST Billing"; Filename: "{app}\Free GST Billing.exe"; Parameters: "/tray"; WorkingDir: "{app}"; IconFilename: "{app}\app-icon.ico"; Comment: "Free GST Billing Software"; AppUserModelID: "{code:GetAumid}"; Tasks: startup
+Name: "{code:IconDir|startup}\The Entry Makers"; Filename: "{app}\Free GST Billing.exe"; Parameters: "/tray"; WorkingDir: "{app}"; IconFilename: "{app}\app-icon.ico"; Comment: "The Entry Makers GST Billing"; AppUserModelID: "{code:GetAumid}"; Tasks: startup
 
 [Run]
-Filename: "{app}\Free GST Billing.exe"; WorkingDir: "{app}"; Description: "Open Free GST Billing now"; Flags: postinstall nowait skipifsilent; Check: MayStart
+Filename: "{app}\Free GST Billing.exe"; WorkingDir: "{app}"; Description: "Open The Entry Makers now"; Flags: postinstall nowait skipifsilent; Check: MayStart
 ; A silent run (an update started from the app): start the server, open no
 ; second window - the app's window reloads by itself.
 Filename: "{win}\System32\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\start-windows.ps1"" -NoWindow -Hidden"; WorkingDir: "{app}"; Flags: nowait runhidden; Check: MayStartSilent
@@ -142,7 +142,7 @@ Type: dirifempty; Name: "{code:HostDataDir}"
 const
   TestPortDefault = '47461';
   LogName = 'Free GST Billing - install log.txt';
-  IconName = 'Free GST Billing.lnk';
+  IconName = 'The Entry Makers.lnk';
 
 var
   TestRoot, TestPort, AppDirValue: String;
@@ -440,7 +440,7 @@ begin
     if FileExists(Dest) and not DeleteFile(Dest) then
       Dest := F + '.' + GetDateTimeString('yyyymmddhhnnss', #0, #0) + '.old';
     if not RenameFile(F, Dest) then begin
-      Result := 'The file ' + F + ' could not be set aside for the update. Close Free GST Billing and run the update again.';
+      Result := 'The file ' + F + ' could not be set aside for the update. Close The Entry Makers and run the update again.';
       exit;
     end;
     AddStr(SetAside, F);
@@ -775,7 +775,7 @@ begin
   SrcSys := '';
   if (Mode = 'keep') or (Mode = 'move') then begin
     if OldHome = '' then begin
-      Result := 'No earlier copy of Free GST Billing with books was found. Use /DATAMODE=new or /DATAMODE=choose.';
+      Result := 'No earlier copy of The Entry Makers with books was found. Use /DATAMODE=new or /DATAMODE=choose.';
       exit;
     end;
     SrcHome := OldHome;
@@ -842,7 +842,7 @@ begin
   if (OldCount > 1) and ((Mode = '') or (((Mode = 'keep') or (Mode = 'move')) and (OldDir = ''))) then begin
     List := '';
     for I := 0 to OldCount - 1 do List := List + #13#10 + '  ' + CopyHome[I] + ' (' + CopyInv[I] + ' invoices, last changed ' + CopyChanged[I] + ')';
-    Result := 'Free GST Billing was found more than once:' + List + #13#10 +
+    Result := 'The Entry Makers was found more than once:' + List + #13#10 +
       'Run Setup without /SILENT to choose, or give /DATAMODE=keep or move with /OLDDIR=<one of these folders>. Nothing was changed.';
     exit;
   end;
@@ -863,7 +863,7 @@ begin
     Edge is optional (the default browser is used without it). PowerShell
     starts the app, and is part of every Windows 10/11 - unless removed. }
   if not FileExists(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe')) then begin
-    MsgBox('Windows PowerShell is missing on this computer, and Free GST Billing needs it to start.' + #13#10#13#10 +
+    MsgBox('Windows PowerShell is missing on this computer, and The Entry Makers needs it to start.' + #13#10#13#10 +
       'Turn it back on in Settings > System > Optional features (Windows PowerShell), then run Setup again. Nothing was changed.', mbError, MB_OK);
     Result := False;
     exit;
@@ -888,8 +888,8 @@ begin
   end;
   SettleAppDir;
   IsUpgrade := FileExists(GetAppDir('') + '\installed.txt') and (ReadFirstLine(GetAppDir('') + '\home.txt') <> '');
-  if IsTest then AddLog('Free GST Billing Setup {#AppVersion} - TEST MODE in ' + TestRoot)
-  else AddLog('Free GST Billing Setup {#AppVersion}');
+  if IsTest then AddLog('The Entry Makers Setup {#AppVersion} - TEST MODE in ' + TestRoot)
+  else AddLog('The Entry Makers Setup {#AppVersion}');
   AddLog('Program folder: ' + GetAppDir(''));
   if IsUpgrade then begin
     Home := ReadFirstLine(GetAppDir('') + '\home.txt');
@@ -905,7 +905,7 @@ end;
 
 function DataIntro: String;
 begin
-  Result := 'Free GST Billing is already on this computer. Its books (' + OldInvoices + ' invoices) are in:' + #13#10 + OldHome + #13#10#13#10 +
+  Result := 'The Entry Makers is already on this computer. Its books (' + OldInvoices + ' invoices) are in:' + #13#10 + OldHome + #13#10#13#10 +
     'Setup never changes or deletes anything in that folder. What should the new app use?';
 end;
 
@@ -917,7 +917,7 @@ begin
   if IsUpgrade then exit;
   After := wpWelcome;
   if OldCount > 1 then begin
-    WhichPage := CreateInputOptionPage(wpWelcome, 'Your books', 'Free GST Billing was found more than once',
+    WhichPage := CreateInputOptionPage(wpWelcome, 'Your books', 'The Entry Makers was found more than once',
       'Which books do you use now? The one changed last is first. Nothing in any of these folders is changed.', True, False);
     for I := 0 to OldCount - 1 do
       WhichPage.Add(CopyHome[I] + '  -  ' + CopyInv[I] + ' invoices, last changed ' + CopyChanged[I]);
@@ -933,7 +933,7 @@ begin
   end else begin
     DataPage := CreateInputOptionPage(After, 'Your books', 'Where your invoices, clients and settings are kept',
       'Your invoices, clients and settings will be kept in:' + #13#10 + BooksHome + #13#10#13#10 +
-      'If you already use Free GST Billing on this computer, choose the folder that holds its books instead.', True, False);
+      'If you already use The Entry Makers on this computer, choose the folder that holds its books instead.', True, False);
     DataPage.Add('Start new books in ' + BooksHome);
     DataPage.Add('I already have my books in another folder (browse)');
     DataPage.SelectedValueIndex := 0;
@@ -1121,7 +1121,7 @@ begin
     SaveStringsToUTF8File(ExpandConstant('{app}\home.txt'), A, False);
   end;
   SetArrayLength(A, 0);
-  AddStr(A, 'Installed by Free GST Billing Setup {#AppVersion}. Updates come as a new Setup (Update now in the app).');
+  AddStr(A, 'Installed by The Entry Makers Setup {#AppVersion}. Updates come as a new Setup (Update now in the app).');
   if IsTest then AddStr(A, 'testroot=' + TestRoot);
   SaveStringsToUTF8File(ExpandConstant('{app}\installed.txt'), A, False);
   { Review M5: the old version's leftovers go only now, with every new file in place. }
@@ -1135,7 +1135,7 @@ begin
       AddLog('No Desktop icon: Windows did not let Setup write on the Desktop (Controlled folder access?). The Start menu icon was made.');
       if not WizardSilent then
         MsgBox('Windows Security did not let Setup put an icon on the Desktop (its "Controlled folder access" protection is on).' + #13#10#13#10 +
-          'Open Free GST Billing from the Start menu instead. Everything else was installed.', mbInformation, MB_OK);
+          'Open The Entry Makers from the Start menu instead. Everything else was installed.', mbInformation, MB_OK);
     end;
     MoveOldShortcutsIn(IconDir('programs'), 'Start menu', True);
     MoveOldShortcutsIn(IconDir('startup'), 'Startup', False);
@@ -1206,7 +1206,7 @@ begin
       DeleteBooks := Lowercase(ExpandConstant('{param:DELETEBOOKS|no}')) = 'yes'
     else if not FileExists(AddBackslash(UHome) + 'server.js') then
       DeleteBooks := MsgBox('Also delete your books (invoices, clients, settings and saved PDFs)?' + #13#10#13#10 + UHome + #13#10#13#10 +
-        'Choose No to keep them (recommended): installing Free GST Billing again finds them.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
+        'Choose No to keep them (recommended): installing The Entry Makers again finds them.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
     { Even after a Yes, only a folder that plainly holds books, and only its
       data, Saved Invoices and Trash. }
     Why := '';

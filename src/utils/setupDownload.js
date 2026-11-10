@@ -13,7 +13,7 @@
 import crypto from 'crypto';
 
 export const SETUP_NAME = 'Free-GST-Billing-Windows-Setup.exe';
-const REPO_DOWNLOADS = 'https://github.com/IamRamgarhia/Free-GST-Billing-Software/releases/download/';
+const REPO_DOWNLOADS = 'https://github.com/canarayanasamy/Free-GST-Billing-Software/releases/download/';
 export const DOWNLOAD_HOSTS = ['github.com', 'objects.githubusercontent.com', 'release-assets.githubusercontent.com'];
 
 export function allowedDownloadUrl(url) {

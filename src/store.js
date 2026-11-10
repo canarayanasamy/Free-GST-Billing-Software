@@ -653,7 +653,7 @@ export const runUpdateNow = async () => {
           }
         } catch { wentAway = true; /* stopped for the update: still installing */ }
       }
-      return { ok: false, error: `The new version did not start within 6 minutes. Open Free GST Billing again from its icon. What happened is written in ${data.log}.` };
+      return { ok: false, error: `The new version did not start within 6 minutes. Open The Entry Makers again from its icon. What happened is written in ${data.log}.` };
     }
     return { ok: true };
   } catch (e) {

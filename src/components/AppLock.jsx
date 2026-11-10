@@ -44,7 +44,7 @@ function LockScreen({ length, onUnlock }) {
       <form className="glass-panel app-lock-card" onSubmit={(e) => { e.preventDefault(); if (pin.length === length) submit(pin); }}>
         <Lock size={32} aria-hidden="true" />
         <h1>Enter your PIN <HelpButton title="PIN lock and a forgotten PIN" doc="troubleshooting#pin-forgotten" size={16} /></h1>
-        <p className="text-muted">Free GST Billing is locked.</p>
+        <p className="text-muted">The Entry Makers is locked.</p>
         <input ref={input} className="form-input app-lock-input" type="password" inputMode="numeric" autoComplete="off" autoFocus
           aria-label={`${length} digit PIN`} placeholder={'•'.repeat(length)} value={pin} onChange={onChange} disabled={busy} maxLength={length} />
         <p className="app-lock-error" role="alert">{error}</p>

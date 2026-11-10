@@ -19,7 +19,7 @@
 param([string]$InstallTo = '')
 
 $ErrorActionPreference = 'Stop'
-$Host.UI.RawUI.WindowTitle = 'Free GST Billing - Update'
+$Host.UI.RawUI.WindowTitle = 'The Entry Makers - Update'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SystemDir = $ScriptDir
@@ -38,7 +38,7 @@ if ($InstallTo) {
 
 Write-Host ''
 Write-Host '  ============================================================'
-Write-Host '   Free GST Billing Software - Update'
+Write-Host '   The Entry Makers - Update'
 Write-Host '  ============================================================'
 Write-Host ''
 
@@ -63,7 +63,7 @@ if ($FromFolder) {
 # --- Step 2: Find latest release ---
 Write-Host '  Checking latest release from GitHub...'
 try {
-  $api = Invoke-RestMethod -Uri 'https://api.github.com/repos/IamRamgarhia/Free-GST-Billing-Software/releases/latest' -Headers @{ 'User-Agent' = 'FreeGSTBill-Updater' }
+  $api = Invoke-RestMethod -Uri 'https://api.github.com/repos/canarayanasamy/Free-GST-Billing-Software/releases/latest' -Headers @{ 'User-Agent' = 'FreeGSTBill-Updater' }
   $tag = $api.tag_name
   $zipAsset = $api.assets | Where-Object { $_.name -like '*.zip' } | Select-Object -First 1
   if (-not $zipAsset) {
@@ -94,7 +94,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 # The extract may contain either the pretty release structure
 # (root has Free GST Billing - WINDOWS.hta + _system/) or the source zipball
-# (root has IamRamgarhia-Free-GST-Billing-Software-HASH/).
+# (root has canarayanasamy-Free-GST-Billing-Software-HASH/).
 $extracted = Get-ChildItem -Path $tmp -Directory | Select-Object -First 1
 $candidateSystem = Join-Path $extracted.FullName '_system'
 if (Test-Path $candidateSystem) {

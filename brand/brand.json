@@ -1,0 +1,19 @@
+{
+  "appName": "The Entry Makers",
+  "shortName": "TEM Billing",
+  "tagline": "GST Billing",
+  "company": "The Entry Makers",
+  "iconLetter": "T",
+  "iconColor": "#2b3fa6",
+  "logo": "brand/logo.jpg",
+  "githubOwner": "canarayanasamy",
+  "githubRepo": "Free-GST-Billing-Software",
+  "contactEmail": "",
+  "contactPhone": "",
+  "website": "",
+  "upstream": {
+    "name": "Free GST Billing",
+    "author": "DiceCodes",
+    "url": "https://github.com/IamRamgarhia/Free-GST-Billing-Software"
+  }
+}

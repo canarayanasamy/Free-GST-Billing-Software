@@ -8,7 +8,7 @@ import { Bug, Lightbulb, CalendarClock, ListChecks, Sparkles } from 'lucide-reac
 import { parseChangelog, inlineParts } from '../utils/changelog';
 import HelpButton from './HelpButton';
 
-const REPO = 'https://github.com/IamRamgarhia/Free-GST-Billing-Software';
+const REPO = 'https://github.com/canarayanasamy/Free-GST-Billing-Software';
 const CHANGELOG_URL = `${REPO}/blob/main/CHANGELOG.md`;
 const card = { padding: '1.25rem 1.5rem' };
 

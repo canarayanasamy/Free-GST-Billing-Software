@@ -293,7 +293,7 @@ static class Program
     {
         Smoke("mode=fallback\r\nwhy=" + why + "\r\n");
         try { Process.Start(Launcher("-AppWindow -Hidden")); }
-        catch (Exception e) { MessageBox.Show("Free GST Billing could not start: " + e.Message, "Free GST Billing", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        catch (Exception e) { MessageBox.Show("The Entry Makers could not start: " + e.Message, "The Entry Makers", MessageBoxButtons.OK, MessageBoxIcon.Error); }
     }
 
     // Runs the launcher; returns { url or null, everything it printed }.
@@ -363,16 +363,16 @@ class MainForm : Form
     public MainForm(string runtime, string eventName)
     {
         this.runtime = runtime;
-        Text = "Free GST Billing";
+        Text = "The Entry Makers";
         BackColor = Splash.Back;
         try { Icon = new Icon(Path.Combine(Program.AppDir, "app-icon.ico")); } catch (Exception) { }
         // The icon near the clock: click = the window; right-click = Open / Quit.
         tray.Icon = Icon;
-        tray.Text = "Free GST Billing";
+        tray.Text = "The Entry Makers";
         ContextMenuStrip menu = new ContextMenuStrip();
         ToolStripItem version = menu.Items.Add(VersionText());
         version.Enabled = false;
-        ToolStripItem open = menu.Items.Add("Open Free GST Billing", null, delegate { ShowFromTray(); });
+        ToolStripItem open = menu.Items.Add("Open The Entry Makers", null, delegate { ShowFromTray(); });
         open.Font = new Font(open.Font, FontStyle.Bold);
         menu.Items.Add("Check for updates", null, delegate { CheckForUpdates(); });
         menu.Items.Add("Open books folder", null, delegate { OpenBooksFolder(); });
@@ -463,7 +463,7 @@ class MainForm : Form
             Program.Trace("hidden");
             if (!File.Exists(tipFile))
             {
-                tray.ShowBalloonTip(8000, "Free GST Billing", "Free GST Billing is still running. Click the icon near the clock to open it.", ToolTipIcon.Info);
+                tray.ShowBalloonTip(8000, "The Entry Makers", "The Entry Makers is still running. Click the icon near the clock to open it.", ToolTipIcon.Info);
                 try { Directory.CreateDirectory(Program.DataDir); File.WriteAllText(tipFile, DateTime.Now.ToString("s")); } catch (Exception) { }
                 Program.Trace("tip");
             }
@@ -521,10 +521,10 @@ class MainForm : Form
         try
         {
             Match m = Regex.Match(File.ReadAllText(Path.Combine(Program.AppDir, "package.json")), "\"version\"\\s*:\\s*\"([^\"]+)\"");
-            if (m.Success) return "Free GST Billing " + m.Groups[1].Value;
+            if (m.Success) return "The Entry Makers " + m.Groups[1].Value;
         }
         catch (Exception) { }
-        return "Free GST Billing";
+        return "The Entry Makers";
     }
 
     // Script for the app's page; kept until the page is there.
@@ -559,8 +559,8 @@ class MainForm : Form
     // The app's own backup (Control Panel > Backup Data: backup-windows.ps1 through the server).
     async void BackupNow()
     {
-        if (origin.Length == 0) { tray.ShowBalloonTip(6000, "Free GST Billing", "The app is still starting. Try again in a moment.", ToolTipIcon.Info); return; }
-        tray.ShowBalloonTip(4000, "Free GST Billing", "Making a backup of your books...", ToolTipIcon.Info);
+        if (origin.Length == 0) { tray.ShowBalloonTip(6000, "The Entry Makers", "The app is still starting. Try again in a moment.", ToolTipIcon.Info); return; }
+        tray.ShowBalloonTip(4000, "The Entry Makers", "Making a backup of your books...", ToolTipIcon.Info);
         string o = origin;
         string said = await Task.Run(() =>
         {
@@ -591,7 +591,7 @@ class MainForm : Form
             catch (Exception ex) { return "The backup did not work: " + ex.Message; }
         });
         Program.Trace("backup " + said);
-        tray.ShowBalloonTip(10000, "Free GST Billing", said, ToolTipIcon.Info);
+        tray.ShowBalloonTip(10000, "The Entry Makers", said, ToolTipIcon.Info);
     }
 
     async void OnHealthTick(object sender, EventArgs e)
@@ -631,7 +631,7 @@ class MainForm : Form
             healthMisses = 0;
             Program.Trace("repair skipped: the server is busy, not stopped");
             if ((DateTime.Now - busySince).TotalMinutes >= 3)
-                Problem("Free GST Billing is not answering. Wait a minute, or right-click its icon near the clock, choose Quit, and open it again. Your books are safe.");
+                Problem("The Entry Makers is not answering. Wait a minute, or right-click its icon near the clock, choose Quit, and open it again. Your books are safe.");
             return;
         }
         busySince = DateTime.MinValue;
@@ -781,19 +781,19 @@ class MainForm : Form
             a.Handled = true;
             CoreWebView2Notification n = a.Notification;
             lastNote = n;
-            tray.ShowBalloonTip(10000, n.Title.Length > 0 ? n.Title : "Free GST Billing", n.Body.Length > 0 ? n.Body : " ", ToolTipIcon.Info);
+            tray.ShowBalloonTip(10000, n.Title.Length > 0 ? n.Title : "The Entry Makers", n.Body.Length > 0 ? n.Body : " ", ToolTipIcon.Info);
             try { n.ReportShown(); } catch (Exception) { }
             Program.Trace("notify " + n.Title);
         };
         core.ProcessFailed += delegate (object o, CoreWebView2ProcessFailedEventArgs a)
         {
-            if (a.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited) Problem("The window's web engine stopped. Close this window and open Free GST Billing again.");
+            if (a.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited) Problem("The window's web engine stopped. Close this window and open The Entry Makers again.");
             else if (a.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessExited)
             {
                 // Review L2: a page that crashes every time is not reloaded for ever.
                 if ((DateTime.Now - lastRenderCrash).TotalMinutes > 5) renderCrashes = 0;
                 lastRenderCrash = DateTime.Now;
-                if (++renderCrashes > 3) Problem("The app's page keeps stopping. Close this window and open Free GST Billing again.");
+                if (++renderCrashes > 3) Problem("The app's page keeps stopping. Close this window and open The Entry Makers again.");
                 else core.Reload();
             }
         };
@@ -802,7 +802,7 @@ class MainForm : Form
 
     static string TitleOf(string t)
     {
-        if (string.IsNullOrWhiteSpace(t) || t.StartsWith("http") || t.StartsWith("localhost")) return "Free GST Billing";
+        if (string.IsNullOrWhiteSpace(t) || t.StartsWith("http") || t.StartsWith("localhost")) return "The Entry Makers";
         return t;
     }
 
@@ -898,7 +898,7 @@ class MainForm : Form
         box.ScrollBars = ScrollBars.Vertical;
         box.Dock = DockStyle.Fill;
         box.Font = new Font("Segoe UI", 11f);
-        box.Text = "Free GST Billing could not start.\r\n\r\n" + text.Replace("\r\n", "\n").Replace("\n", "\r\n");
+        box.Text = "The Entry Makers could not start.\r\n\r\n" + text.Replace("\r\n", "\n").Replace("\n", "\r\n");
         status.Visible = false;
         web.Visible = false;
         Controls.Add(box);
@@ -940,7 +940,7 @@ class MainForm : Form
 }
 
 // The start screen, also shown over the page while the app starts again: the
-// app's icon, its name, a thin moving bar and "by DiceCodes". Light or dark
+// app's icon, its name, a thin moving bar and "GST Billing". Light or dark
 // like the app's own theme (Settings; kept in the books folder's
 // data\local-prefs.json, light when not set) and the app's own background,
 // so there is no flash. The logo is read into memory (never left open), so an
@@ -1004,7 +1004,7 @@ class Splash : Control
         using (Font name = new Font("Segoe UI Semibold", 18f))
         using (Font by = new Font("Segoe UI", 9f))
         {
-            const string title = "Free GST Billing";
+            const string title = "The Entry Makers";
             SizeF ts = g.MeasureString(title, name);
             int block = logoSize + gap1 + (int)ts.Height + gap2 + barH;
             int top = Math.Max((int)(12 * s), (Height - block) / 2 - (int)(24 * s));
@@ -1020,8 +1020,8 @@ class Splash : Control
             g.SetClip(bar);
             using (Brush b = new SolidBrush(blue)) g.FillRectangle(b, x, bar.Y, seg, barH);
             g.ResetClip();
-            SizeF bs = g.MeasureString("by DiceCodes", by);
-            using (Brush b = new SolidBrush(muted)) g.DrawString("by DiceCodes", by, b, cx - bs.Width / 2, Height - bs.Height - (int)(28 * s));
+            SizeF bs = g.MeasureString("GST Billing", by);
+            using (Brush b = new SolidBrush(muted)) g.DrawString("GST Billing", by, b, cx - bs.Width / 2, Height - bs.Height - (int)(28 * s));
         }
     }
 
