@@ -1,7 +1,7 @@
 # The Entry Makers - weekly update from the original project (DiceCodes).
 #
 # Run in PowerShell from this folder:   .\sync-upstream.ps1
-#   -Release   also build the Windows Setup (needs Inno Setup 6)
+#   -Release   also build the Windows Setup (needs Inno Setup 6 or 7)
 #
 # What it does:
 #   1. fetches the original project's latest code (remote "upstream")
@@ -57,6 +57,11 @@ if (& $git status --porcelain) { Git commit -m "Re-apply The Entry Makers brandi
 
 if ($Release) {
   Step 'Building the Windows Setup'
+  # Upstream's build script only looks for "Inno Setup 6"; point it at 7 (or 6) ourselves.
+  if (-not $env:ISCC) {
+    $env:ISCC = @("$env:ProgramFiles\Inno Setup 7\ISCC.exe", "${env:ProgramFiles(x86)}\Inno Setup 7\ISCC.exe",
+      "$env:LOCALAPPDATA\Programs\Inno Setup 7\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+  }
   npm run release:exe; if ($LASTEXITCODE -ne 0) { throw 'Setup build failed' }
 }
 
