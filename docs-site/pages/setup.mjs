@@ -5,7 +5,7 @@ export default [
 {
   slug: 'settings',
   title: 'Settings',
-  lead: 'Every tab of Settings, card by card, in the order the tabs appear: Business type, Company, Profiles, Terms, Print & PDF, Features, Stock, Region, App lock, Backups, Google Drive, Import/Export and Updates. Each card in the app has a ? next to its title that opens the matching part of this page.',
+  lead: 'Every tab of Settings, card by card, in the order the tabs appear: Company, Print & PDF, Features, Privacy & Security, Data & Backups and Updates. Each card in the app has a ? next to its title that opens the matching part of this page.',
   body: `
 <section id="save-bar">
 <h2>Settings tabs and the Save all changes bar</h2>
@@ -15,8 +15,8 @@ export default [
   <tr><td>${ui('Company')}</td><td>Business type, Company details (with payment accounts), Business profiles, Terms</td></tr>
   <tr><td>${ui('Print &amp; PDF')}</td><td>Print and PDF settings, Region</td></tr>
   <tr><td>${ui('Features')}</td><td>Features, Cost centres (when turned on), Stock alerts</td></tr>
-  <tr><td>${ui('Privacy &amp; Security')}</td><td>App lock (PIN), Privacy &amp; internet</td></tr>
-  <tr><td>${ui('Data &amp; Backups')}</td><td>Backups and the Trash bin, Google Drive, Import/Export</td></tr>
+  <tr><td>${ui('Privacy &amp; Security')}</td><td>App lock (PIN), <a href="phone.html">Use on phone or tablet</a>, Privacy &amp; internet</td></tr>
+  <tr><td>${ui('Data &amp; Backups')}</td><td>Backups and the Trash bin, <a href="backup.html#close-books">Close the books</a> and the edit history, Google Drive, Import/Export</td></tr>
   <tr><td>${ui('Updates')}</td><td>App updates</td></tr>
 </table></div>
 <p>Click a tab to show it; the tab you are on is filled in blue. On a phone or a small screen the buttons wrap onto two lines; nothing is hidden. Searching with ${ui('Ctrl + K')} for a setting (for example "Google Drive") opens its tab at that card.</p>
@@ -44,9 +44,9 @@ export default [
 
 <section id="business-type">
 <h2>Business type</h2>
-<p>The first tab. Pick what kind of business you run, and the app shows the screens and features that business needs and hides the rest, so the menu stays short. Use it when you first set the app up, or when the menu shows things you never use.</p>
+<p>The first card on the ${ui('Company')} tab. Pick what kind of business you run, and the app shows the screens and features that business needs and hides the rest, so the menu stays short. Use it when you first set the app up, or when the menu shows things you never use.</p>
 <p>The card shows <b>Your business type:</b> with the type that is saved now, or <b>Not chosen yet</b>.</p>
-<figure><img src="assets/img/settings-business-type.png" alt="Settings, Business type tab: the row of Settings tabs at the top and seven business type cards, with Everything picked." loading="lazy"><figcaption>The Business type tab. The saved type is shown in blue; the Save all changes bar is at the bottom.</figcaption></figure>
+<figure><img src="assets/img/settings-business-type.png" alt="Settings, Company tab: the row of six Settings tabs at the top, then the Business type card with seven business type cards, Everything picked, and Company Details starting below it." loading="lazy"><figcaption>The Business type card at the top of the Company tab. The saved type is shown in blue; the Save all changes bar is at the bottom.</figcaption></figure>
 <ol class="steps">
   <li><strong>Pick a type</strong>Click one of the seven cards. Each says in one line who it is for.</li>
   <li><strong>Check what will change</strong>A yellow box, <b>Not saved yet</b>, lists what will be turned on (<i>Turn on: …</i>) and turned off (<i>Turn off: …</i>). The tick boxes on the Features tab are filled in to match.</li>
@@ -289,8 +289,19 @@ export default [
   <tr><td>${ui('+ Add New Profile')}</td><td>Saves the business now on the Company tab into the list first (so it is never lost), then opens the Company tab with an empty form for the new business.</td></tr>
   <tr><td>${ui('Save as Profile')}</td><td>Saves the Company tab as it is into the list, or updates that business's card if it is already there.</td></tr>
   <tr><td>${ui('Switch')}</td><td>Makes that business the active one. The current one is saved first. Every screen then shows the new business. The active card shows ${ui('Current')} instead.</td></tr>
+  <tr><td>${ui('Hide with PIN')}</td><td>Leaves the business out of the company list until its own PIN is typed (see below). ${ui('Stop hiding')} puts it back, after its PIN.</td></tr>
   <tr><td>Bin</td><td>Removes the profile from the list after asking. Its invoices stay.</td></tr>
 </table></div>
+<h3 id="hidden-company">Hiding a business behind a PIN</h3>
+<p>For a business other people at the same PC should not see. Click ${ui('Hide with PIN')} on its card and type a 6 or 8 digit PIN twice (use one different from the app lock). The business then leaves the company list at the top of the sidebar, the Profiles tab and the <b>Billing from</b> choice on New Invoice.</p>
+<ul>
+  <li><b>To open it</b>: click the business name at the top of the sidebar, then ${ui('Open a hidden company...')}, and type its PIN. The list never shows the names of hidden businesses.</li>
+  <li><b>It hides again</b> when you switch to another business, or when the app is opened again.</li>
+  <li>Keep at least one business that is not hidden, so the app always has one to open.</li>
+  <li>Five wrong PINs in a row make the next try wait 30 seconds.</li>
+  <li><b>Forgot the PIN?</b> It cannot be read back. Restore a backup made before the business was hidden, or ask for help on GitHub.</li>
+</ul>
+<p>This hides a business from view. It does not encrypt it: its invoices stay in the books folder and in backups as before. To keep everyone out of the whole app, use the <a href="#lock">App lock</a>.</p>
 <h3>Adding a second business</h3>
 <ol class="steps">
   <li><strong>Save the first</strong>Make sure the first business's Company details are filled in and saved.</li>
@@ -348,6 +359,7 @@ export default [
 <p>Unticked things disappear from the menu and the screens. <b>Nothing is deleted</b>: your data is kept, and ticking it again brings it all back. Each switch has a line saying what it does.</p>
 <figure><img src="assets/img/settings-features.png" alt="Settings, Features tab: tick boxes for the top of the menu, the bottom of the menu and the buttons at the top right, each with arrows to change the order." loading="lazy"><figcaption>The Features tab. Tick what you want in the menu, and use the arrows to change its order.</figcaption></figure>
 <p>${ui('Reset to my business type')}, at the top right, sets every switch back to what your <a href="#business-type">business type</a> gives; save to apply it. Before a business type is chosen, the button is ${ui('Reset to default')}.</p>
+<p><b>Start with "Cash Sale"</b> (off to start) makes every new invoice start with the customer <b>Cash Sale</b>, for walk-in counter sales; type or pick a name to bill someone else. It is not added to your Clients.</p>
 <p>When <b>Cost centres</b> is on, a <b>Cost centres</b> card appears under Features on this tab, to add your branches, sites or projects: see <a href="reports.html#cost-centres">Cost centres</a>.</p>
 <h3>Something wrong?</h3>
 <ul>
@@ -373,16 +385,30 @@ export default [
 <p>Switches for parts of a screen, grouped by the screen they appear on:</p>
 <div class="table-wrap"><table>
   <tr><th>Screen</th><th>Switch</th><th>What it shows</th></tr>
-  <tr><td rowspan="4">Invoice screen</td><td>TDS / TCS</td><td>Tax deducted or collected at source on an invoice. See <a href="invoices.html#tds-tcs">TDS and TCS</a>.</td></tr>
+  <tr><td rowspan="6">Invoice screen</td><td>TDS / TCS</td><td>Tax deducted or collected at source on an invoice. See <a href="invoices.html#tds-tcs">TDS and TCS</a>.</td></tr>
   <tr><td>E-way bill</td><td>The button to download the e-way bill file for goods you send.</td></tr>
   <tr><td>E-invoicing (IRN)</td><td>Only if your yearly turnover is above ₹5 crore. <b>Off</b> to start. See <a href="gst-returns.html#e-invoice">E-invoicing</a>.</td></tr>
+  <tr><td>Sales orders</td><td>The Sales Order document and a ${ui('Sales orders')} tab on the Dashboard: send an order in parts with delivery challans, then invoice it. <b>Off</b> to start (on for Wholesale, Manufacturing and Everything). See <a href="invoices.html#sales-orders">Sales orders</a>.</td></tr>
   <tr><td>UPI QR code</td><td>The scan-to-pay QR code on invoices.</td></tr>
+  <tr><td>Price levels</td><td>Up to 3 price lists, such as Retail, Wholesale and Dealer. <b>Off</b> to start. See <a href="#price-levels">Price levels</a>.</td></tr>
   <tr><td rowspan="2">Purchases screen</td><td>Purchase orders</td><td>Orders to suppliers, turned into bills when goods arrive. <b>Off</b> to start. See <a href="purchases.html#purchase-orders">Purchase orders</a>.</td></tr>
   <tr><td>GSTR-2B matching</td><td>Matching your purchase bills with GSTR-2B, a tab on GST returns.</td></tr>
   <tr><td>Products screen</td><td>Manufacturing (bill of materials)</td><td>What goes into a product, and ${ui('Make')} to move the stock. <b>Off</b> to start. See <a href="products.html#manufacturing">Manufacturing</a>.</td></tr>
   <tr><td>Reports screen</td><td>Cost centres</td><td>Tag bills, purchases and expenses with a branch, site or project, and see profit for each. <b>Off</b> to start.</td></tr>
   <tr><td>Integrations</td><td>Google Drive</td><td>Saving invoice PDFs and backups to your Google Drive.</td></tr>
 </table></div>
+</section>
+
+<section id="price-levels">
+<h3>Price levels</h3>
+<p>For a business that sells the same product at different prices to different customers: shop customers, wholesalers, dealers.</p>
+<ol class="steps">
+  <li><strong>Turn it on</strong>Tick <b>Price levels</b> under <b>Invoice screen</b>. Three boxes appear under it with the level names: <b>Retail</b>, <b>Wholesale</b> and <b>Dealer</b>. Change them to your own names, or empty one to use only two levels. Click ${ui('Save all changes')}.</li>
+  <li><strong>Prices</strong>On the <a href="products.html#add-product">product form</a>, <b>Price for each level (optional)</b> has a box per level, besides the <b>Selling Price</b>. Leave a box empty where that level pays the selling price.</li>
+  <li><strong>Clients</strong>On the <a href="clients.html#client-form">client form</a>, pick their <b>Price level</b>. <b>Selling price (no level)</b> is the default.</li>
+  <li><strong>Invoices</strong>On New Invoice, pick the client, then the products: each product comes in at the client's level price, or at its selling price when it has none for that level. You can still change the rate on the line.</li>
+</ol>
+<p>The Products <a href="products.html#import">CSV import</a> reads a <code>&lt;level name&gt; price</code> column for each level (such as <code>Wholesale price</code>), and the Products export writes them, so the file goes out and comes back the same. A name that would read as another column is refused when you save, such as Selling, Sale, Purchase, MRP, Rate or Level 2, and so are two levels with the same name. With <b>Tax inclusive</b> = Y in the file, the level prices lose the GST like the selling price. A <code>... price</code> column that is not one of your levels (for example after renaming one) is named as an error on each row that fills it; <code>Level 1 price</code> to <code>Level 3 price</code> always work. Renaming a level keeps every price and client on it. Turning the feature off hides the boxes and invoices use the selling price again; the level prices stay saved for when you turn it back on.</p>
 </section>
 
 <section id="stock">
@@ -436,6 +462,7 @@ export default [
   <li>After five wrong tries in a row, wait 30 seconds before the next.</li>
 </ul>
 <p>It locks the screen only; it does not encrypt your files. Keep your backups safe as before. Backup files never contain the PIN, and restoring a backup keeps the PIN you have now.</p>
+<p>The PIN is also what a phone or tablet must type to pair with the app (<a href="phone.html">Use on phone or tablet</a>). Turning the PIN off turns phone access off too.</p>
 <h3>Something wrong?</h3>
 <ul>
   <li><b>"The two PINs do not match"</b> or <b>"The PIN must be 6 digits"</b>: type the same PIN, of the length you chose, in both boxes.</li>
@@ -641,6 +668,24 @@ export default [
   <li>${ui('Delete forever')} removes it and its PDF straight away, after asking. This cannot be undone.</li>
 </ul>
 <p>For an invoice already given to a client, <a href="dashboard.html#cancel">cancel it</a> instead of deleting it, so its number stays in your records.</p>
+</section>
+
+<section id="close-books">
+<h2>Close the books</h2>
+<p>After you file a month's GST returns, close the books up to its last day, so nothing in a filed month changes by mistake. In Settings, on the ${ui('Data & Backups')} tab, under <b>Close the books</b>, pick the last day (for example 31 October 2026) and click ${ui('Close the books')}.</p>
+<ul>
+  <li>Invoices, purchase bills, expenses, debit notes, stock adjustments and cash book entries dated on or before that day can no longer be <b>added</b>, <b>deleted</b>, or <b>changed</b> in their date, number, items, amounts, GST (including SEZ, export and reverse charge) or cancellation. The message says why, for example <i>the books are closed up to 2026-10-31</i>.</li>
+  <li>What does not change the accounts still works: recording a <b>payment</b> or a <b>receipt</b> against an old invoice or purchase bill, printing, sharing and notes.</li>
+  <li>With the <a href="#lock">App lock</a> on, closing or opening the books asks for its PIN. It is done on the PC itself, not from a paired phone.</li>
+  <li>A deleted invoice dated in a closed month cannot be restored from the Trash until the books are opened.</li>
+  <li>To correct a filed month, ${ui('Open the books')}, make the change (your GST return may need an amendment: ask your CA), and close them again. Closing and opening are written in the edit history.</li>
+  <li>The server checks every save, so a phone or tablet cannot change a closed month either. A restore from a backup or an import keeps the books closed (or open) as they are now, and keeps this PC's edit history; the restore itself is written in it.</li>
+</ul>
+</section>
+
+<section id="edit-history">
+<h2>Edit history</h2>
+<p>Under <b>Close the books</b>, ${ui('Show the edit history')} lists the latest changes, newest first: when, what (an invoice added, a purchase bill changed, an expense deleted...), its number, its date, and the amount (before and after when it changed). A change made from a phone says <i>(phone)</i>. Pick one kind in the list to see only those. The history starts with this version: earlier changes are not in it. It is kept in your books folder (<code>data/edit-history</code>, one file a month) and copied with the automatic backups.</p>
 </section>
 
 <section id="move-pc">

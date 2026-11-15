@@ -21,7 +21,7 @@ export default [
   <tr><td>${ui('New Invoice')}</td><td>Starts a blank invoice. See <a href="invoices.html">Making an invoice</a>.</td></tr>
 </table>
 <p>From top to bottom the screen then shows: the welcome note and the Getting started list (new users only), the support card, the red overdue banner (only when something is overdue), the four totals, the low-stock strip (only when a product is running low), and the invoice list with its filters.</p>
-<figure><img src="assets/img/app-dashboard.png" alt="The Dashboard: CSV import / export, Import IRN and New Invoice at the top right, a red banner for two overdue invoices, the four total cards in rupees and dollars, low stock, and the invoice list." loading="lazy"><figcaption>The Dashboard with two overdue invoices, the four totals, low stock and the buttons at the top right.</figcaption></figure>
+<figure><img src="assets/img/app-dashboard.png" alt="The Dashboard: CSV import / export, Import IRN and New Invoice at the top right, a red banner for two overdue invoices, the Totals for period box, the four total cards in rupees and dollars, the low-stock strip with Make purchase order, and the invoice list with its Invoices, Sales orders, Cancelled and Trash tabs." loading="lazy"><figcaption>The Dashboard with two overdue invoices, the four totals, low stock and the buttons at the top right.</figcaption></figure>
 </section>
 
 <section id="welcome-card">
@@ -111,7 +111,7 @@ export default [
   <li>Quotations, proforma estimates and delivery challans are <b>left out</b>: they are not sales yet.</li>
   <li>Cancelled invoices are <b>left out</b>.</li>
 </ul>
-<p>The totals are for <b>all years</b> together and do not follow the filters on the invoice list. For one month, quarter or year, use <a href="reports.html">Reports</a> or <a href="gst-returns.html">GST Returns</a>. Sales in a foreign currency get a line of their own on each card (for example ₹4,25,000 and \$1,200), never added to rupees. A card shows <b>—</b> when there are no sales yet.</p>
+<p>The totals are for <b>all years</b> together until you choose a period in <b>Totals for</b> above the cards: <b>This month</b>, <b>Last month</b>, <b>Choose a month…</b> (pick any month), or a financial year (April to March). An invoice counts in the period of its invoice date, and the choice is remembered in this browser. The cards do not follow the filters on the invoice list. For a quarter, or the full figures, use <a href="reports.html">Reports</a> or <a href="gst-returns.html">GST Returns</a>. Sales in a foreign currency get a line of their own on each card (for example ₹4,25,000 and \$1,200), never added to rupees. A card shows <b>—</b> when there are no sales yet.</p>
 </section>
 
 <section id="total-invoiced">
@@ -142,16 +142,18 @@ export default [
 <p>If low-stock alerts are on in <a href="settings.html#stock">Settings</a> (they are on to start, with a limit of 5), every product whose stock is at or below your limit is listed in one line under <b>Low stock (n)</b>, where n is how many there are. Each shows the product name, its HSN code if it has one, and either <b>Out of Stock</b> in red (0 or less) or <b>Stock: 3</b> in amber.</p>
 <p>When the list is wider than the screen, it scrolls past slowly like a news ticker; point at it with the mouse to stop it. A short list stays still. If your computer is set to reduce motion, it does not move and you scroll it sideways instead. Click any product to open <a href="products.html">Products</a> and restock it.</p>
 <p>The strip disappears when no product is low, or when alerts are turned off. The limit is one number for all products; change it in Settings. How stock goes up and down is explained in <a href="products.html#stock">How stock is counted</a>.</p>
+<p>With purchase orders turned on, ${ui('Make purchase order')} beside the heading opens a new purchase order for these products, enough to reach twice the limit; you choose the supplier and check it before saving. See <a href="products.html#low-stock">Low-stock alerts</a>.</p>
 <div class="note tip"><strong>Something wrong?</strong>
 <p>A product shows Out of Stock but you have plenty? Its stock in Products was never set, or sales took it below zero. Open Products and correct the stock. Old invoices imported without "Take sold quantities out of product stock" do not touch stock.</p></div>
 </section>
 
 <section id="invoice-list">
 <h2>Finding an invoice</h2>
-<p><b>Three tabs at the top of the list:</b></p>
+<p><b>Tabs at the top of the list:</b></p>
 <table>
   <tr><th>Tab</th><th>Shows</th></tr>
   <tr><td>${ui('Invoices')}</td><td>Your invoices, quotations and other documents, except cancelled ones.</td></tr>
+  <tr><td>${ui('Sales orders')}</td><td>Only when <a href="invoices.html#sales-orders">Sales orders</a> are turned on: your customers' orders, with their dispatch status (Open, Partly dispatched, Dispatched, Invoiced), and the truck (<b>Make delivery challan</b>) and green page (<b>Invoice the rest</b>) buttons. Orders are then not listed under Invoices.</td></tr>
   <tr><td>${ui('Cancelled')}</td><td>Cancelled invoices. They keep their numbers and count for nothing in totals, reports and GST returns. ${ui('Undo cancel')} on a row puts it back in Invoices.</td></tr>
   <tr><td>${ui('Trash')}</td><td>Deleted invoices, with the days left. Each waits 30 days, then it is removed for good. ${ui('Restore')} puts it back in your invoices (with its stock); ${ui('Delete forever')} removes it at once.</td></tr>
 </table>
@@ -258,7 +260,7 @@ export default [
   <li><strong>Amount Received</strong>Type what actually reached your bank. Or leave it empty to record only the TDS, if you already recorded the payment.</li>
   <li><strong>Record it</strong>Click ${ui('Record Payment')}. The TDS is saved on the invoice (as if you had ticked TDS under Customize), so it is owed only its Net Receivable, and it appears in <a href="reports.html#tds-by-clients">Reports, TDS &amp; TCS</a> for checking against your Form 26AS.</li>
 </ol>
-<p><b>Example.</b> Invoice ₹1,18,000 (₹1,00,000 + 18% GST). The client pays ₹1,08,000 and deducts ₹10,000 TDS under 194J. Tick <b>Client deducted TDS</b>, pick 194J at 10%, type 1,08,000 and record it: the invoice is Paid.</p>
+<p><b>Example.</b> Invoice ₹1,18,000 (₹1,00,000 + 18% GST). The client pays ₹1,08,000 and deducts ₹10,000 TDS under 393(1) Sl. 6(iii) (194J before April 2026). Tick <b>Client deducted TDS</b>, pick 194J at 10%, type 1,08,000 and record it: the invoice is Paid.</p>
 <p>To change or remove the TDS later, open the invoice and change TDS under ${ui('Customize')}.</p>
 <p>The TDS you record here stays as recorded. Opening the invoice later and saving it again no longer works it out afresh (for 194Q the ₹50 lakh threshold could turn it into zero). If you change the TDS section or rate on the invoice, it is worked out again from the new rate.</p>
 </section>
@@ -330,7 +332,7 @@ export default [
   <tr><th>Control</th><th>What it does</th></tr>
   <tr><td>Zoom slider, ${ui('−')} and ${ui('+')}</td><td>Make the preview smaller or bigger, from 30% to 250%. ${ui('−')} and ${ui('+')} step 10% at a time. It opens at 70% for A4 so the whole page fits, and 160% for a narrow receipt so you can read it; on a smaller window or a phone it opens smaller, so the whole width of the page fits. Zoom only changes this preview: the print is always full size on the chosen paper.</td></tr>
   <tr><td>The percentage (such as ${ui('70%')})</td><td>Click it to go back to the normal size.</td></tr>
-  <tr><td>${ui('Download PDF')}</td><td>Only when opened from the invoice screen. Saves and downloads the PDF instead of printing, the same as <a href="invoices.html#save-download">Save &amp; Download</a>.</td></tr>
+  <tr><td>${ui('Download PDF')}</td><td>Only when opened from the invoice screen. Saves and downloads the PDF instead of printing, the same as <a href="invoices.html#save-download">Save PDF</a>.</td></tr>
   <tr><td>${ui('Cancel')}, ${ui('✕')} or <kbd>Esc</kbd></td><td>Close it without printing. A click outside the window also closes it.</td></tr>
   <tr><td>${ui('Print')}</td><td>Closes the preview and sends the invoice to print, then your browser's print window opens: choose the printer and click Print there. The button shows "Sending…" while it works. From the Dashboard this works like ${ui('⋯')} <b>Print</b>: the print count goes up by one.</td></tr>
 </table>
@@ -345,7 +347,7 @@ export default [
   <li><b>On a phone or tablet</b> (Chrome or Safari): the app makes the PDF and opens your phone's share menu with it attached. Pick WhatsApp and the client.</li>
   <li><b>On a computer</b>: WhatsApp does not let any website attach a file. So the client's chat opens in a new tab with the message, using the phone number saved for them, and the PDF is downloaded to your Downloads folder. Drag that PDF into the chat and send. If no number is saved, choose the contact in WhatsApp yourself.</li>
 </ul>
-<p><b>Email</b> opens your email program (Outlook, Windows Mail, Gmail if set as your mail app) with the subject <b>Invoice INV/0012 - ₹11,800</b>, a short "Dear …" message with the same details, and the client's email address filled in when the invoice or the saved client has one. Email links cannot attach files, so attach the PDF yourself: download it first with ${ui('Save &amp; Download')} on the invoice screen, or tick the invoice and use ${ui('One merged PDF')}.</p>
+<p><b>Email</b> opens your email program (Outlook, Windows Mail, Gmail if set as your mail app) with the subject <b>Invoice INV/0012 - ₹11,800</b>, a short "Dear …" message with the same details, and the client's email address filled in when the invoice or the saved client has one. Email links cannot attach files, so attach the PDF yourself: download it first with ${ui('Save PDF')} on the invoice screen, or tick the invoice and use ${ui('One merged PDF')}.</p>
 <div class="note tip"><strong>Something wrong?</strong>
 <p>Email does nothing: no email program is set as the default on this computer. Set one in Windows Settings, Apps, Default apps, Email, or copy the details into Gmail yourself. WhatsApp opens the wrong chat or says the number is invalid: save the client's phone with the country code, such as <code>+91 98765 43210</code>, in <a href="clients.html#client-form">Clients</a>. For sending from the invoice screen, see <a href="invoices.html#whatsapp">Sharing on WhatsApp</a>.</p></div>
 </section>
@@ -376,6 +378,8 @@ export default [
   <li><strong>Import</strong>Click ${ui('Import')} (it shows the number ready, such as <b>Import 25</b>). It says "Importing…" while it works, then a message such as "25 invoices imported · 2 already there, skipped". The list refreshes by itself.</li>
 </ol>
 <p><b>From Vyapar or Excel:</b> you can choose an Excel file (<code>.xlsx</code>) instead of a CSV, such as Vyapar's sale report. The window opens on the sheet with the invoice items (pick another under <b>Sheet</b>), and what Vyapar's <b>Sale Report</b> sheet says was received is recorded as a payment. Cancelled sales are left out.</p>
+<p><b>From Flipkart:</b> download your orders report from Flipkart Seller Hub (Orders, then download the report as CSV) and choose it here as it is. Each order becomes a tax invoice with Flipkart's invoice number and date, the buyer and state, the HSN, quantity and GST, and the amount the buyer was billed (GST included). The <b>order ID</b> goes into <b>Buyer's Order No</b> and the <b>tracking ID (AWB)</b> into <b>Dispatch Doc No</b>, so typing either in the Invoices search finds the bill. Returned orders are imported as the sales they were; the window says how many, so you can record each return as a Credit Note.</p>
+<p><b>Order and courier details from any file:</b> columns named <i>Order ID</i> (or <i>Buyer Order No</i>), <i>AWB</i> (or <i>Tracking ID</i>, <i>Dispatch Doc No</i>) and <i>Courier</i> (or <i>Dispatched Through</i>) are read into the invoice's order details too.</p>
 <p>${ui('Export all as CSV')} downloads every invoice of this business, oldest first, in the same columns as the template (cancelled invoices are left out), as <code>Sales-invoices-YYYY-MM-DD.csv</code>. You can edit that file and import it into another copy of the app.</p>
 <p><b>How to fill the file.</b> One row per item. Rows with the same invoice number make one invoice; give the client, date and other invoice details on the first row (later rows may leave them blank). Column names are matched loosely, so <b>Qty</b> or <b>Quantity</b>, <b>GSTIN</b> or <b>Client GSTIN</b>, <b>Customer</b> or <b>Client Name</b> all work. Dates can be <code>2026-10-01</code>, <code>01-10-2026</code> or <code>01/10/2026</code> (day first, as in India).</p>
 <table>
@@ -391,6 +395,7 @@ export default [
   <tr><td>Prices Include Tax</td><td>Yes if the rates already include GST.</td></tr>
   <tr><td>Notes</td><td>Printed on the invoice.</td></tr>
   <tr><td>Bill Discount, Round Off</td><td>For the whole invoice: rupees off after tax, and Yes to round the total to the rupee.</td></tr>
+  <tr><td>Bill Discount Before GST</td><td>Optional. Yes: the Bill Discount is a trade discount, taken before GST (shared over the lines, GST on the reduced value). No or blank: after GST, as before.</td></tr>
 </table>
 <p>GST, CGST + SGST or IGST and the totals are worked out exactly as on the invoice screen. Imported invoices start <b>Unpaid</b>, in rupees. An invoice number that already exists is <b>skipped, never overwritten</b>. Two different invoices with the same number (for example, numbering that restarts each year) are refused: give one of them its own number.</p>
 <div class="note tip"><strong>Something wrong?</strong>

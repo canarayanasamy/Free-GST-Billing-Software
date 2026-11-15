@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getProfile, saveProfile, exportAllData, importData, inspectBackup, getTermsTemplates, saveTermsTemplate, deleteTermsTemplate, getAllProfiles, saveBusinessProfile, deleteBusinessProfile, getRegionMode, setRegionMode, getStockAlertSettings, saveStockAlertSettings, renameNumberSeries, getInvoiceDisplayOptions, saveInvoiceDisplayOptions, getCostCentres, saveCostCentres } from '../store';
+import { getProfile, saveProfile, exportAllData, importData, inspectBackup, getTermsTemplates, saveTermsTemplate, deleteTermsTemplate, getAllProfiles, saveBusinessProfile, deleteBusinessProfile, getRegionMode, setRegionMode, getStockAlertSettings, saveStockAlertSettings, renameNumberSeries, getInvoiceDisplayOptions, saveInvoiceDisplayOptions, getCostCentres, saveCostCentres, setCompanyHidePin, keepOpened, hideCompaniesAgain } from '../store';
 import { ensureToken, findOrCreateFolder, uploadJSON } from '../services/googleDrive';
 import { getCountryConfig, getStatesForCountry, validateTaxId, getCountriesForRegion, isModuleEnabled, getPaymentAccounts, createEmptyAccount, maskAccountNumber, reorderAccounts, setDefaultAccount, isValidUpiId, findSameBusiness, businessKeyOf, localToday } from '../utils';
 import { normaliseLutArn, isLikelyLutArn, lutFyOptions, fyOf } from '../utils/lut';
@@ -10,14 +10,16 @@ import { normaliseLutArn, isLikelyLutArn, lutFyOptions, fyOf } from '../utils/lu
 // `new Image()` inside handleImageUpload was trying to construct a
 // React icon. Aliased to `ImageIcon` so `new Image()` resolves to
 // the browser primitive again.
-import { Save, Upload, Download, Plus, Trash2, Edit3, Image as ImageIcon, PenTool, Cloud, CloudOff, Building2, Hash, RefreshCw, Save as SaveIcon } from 'lucide-react';
+import { Save, Upload, Download, Plus, Trash2, Edit3, Image as ImageIcon, PenTool, Cloud, CloudOff, Building2, Hash, RefreshCw, Save as SaveIcon, Lock } from 'lucide-react';
 import { initGoogleDrive, isConnected, disconnect } from '../services/googleDrive';
 import { toast } from './Toast';
-import { confirmAction } from './ConfirmModal';
+import { confirmAction, promptAction } from './ConfirmModal';
 import PrintSettings from './PrintSettings';
 import HelpButton from './HelpButton';
+import BooksLockSettings from './BooksLockSettings';
 import AppLockSettings from './AppLockSettings';
 import PrivacyInternet from './PrivacyInternet';
+import PhoneAccessSettings from './PhoneAccessSettings';
 import CostCentreSettings from './CostCentreSettings';
 import { BusinessTypePanel, FeaturesPanel, useFeatureDraft } from './FeatureSettings';
 import { rekeyCentres } from '../utils/costCentres';
@@ -40,8 +42,8 @@ const SETTINGS_TABS = [
   ['tab-company',  'Company',            ['section-biztype', 'section-company', 'section-profiles', 'section-terms']],
   ['tab-print',    'Print & PDF',        ['section-print', 'section-region']],
   ['tab-features', 'Features',           ['section-modules', 'section-costcentres', 'section-stock']],
-  ['tab-privacy',  'Privacy & Security', ['section-lock', 'section-privacy']],
-  ['tab-data',     'Data & Backups',     ['section-backups', 'section-cloud', 'section-data']],
+  ['tab-privacy',  'Privacy & Security', ['section-lock', 'section-phone', 'section-privacy']],
+  ['tab-data',     'Data & Backups',     ['section-backups', 'section-books', 'section-cloud', 'section-data']],
   ['tab-updates',  'Updates',            ['section-updates']],
 ];
 const ALL_SECTIONS = SETTINGS_TABS.flatMap(([, , sections]) => sections);
@@ -55,8 +57,8 @@ const SETTINGS_TAB_DOCS = {
   'section-biztype': 'settings#business-type',
   'section-company': 'settings#company-details', 'section-profiles': 'settings#business-profiles',
   'section-terms': 'settings#terms', 'section-print': 'print-settings', 'section-modules': 'settings#features',
-  'section-stock': 'settings#stock', 'section-region': 'settings#region', 'section-lock': 'settings#lock', 'section-privacy': 'security#offline-mode',
-  'section-backups': 'backup#automatic-backups', 'section-cloud': 'settings#google-drive', 'section-data': 'backup#export-import',
+  'section-stock': 'settings#stock', 'section-region': 'settings#region', 'section-lock': 'settings#lock', 'section-phone': 'phone', 'section-privacy': 'security#offline-mode',
+  'section-backups': 'backup#automatic-backups', 'section-books': 'backup#close-books', 'section-cloud': 'settings#google-drive', 'section-data': 'backup#export-import',
   'section-updates': 'settings#updates',
 };
 
@@ -695,8 +697,11 @@ export default function SettingsView({ onSaved }) {
       await saveBusinessProfile({ ...profile, id: existing?.id || undefined });
     }
     loadedProfileId.current = bp.id;
+    hideCompaniesAgain(bp.id); // #125 - a hidden company left behind hides again
     const loaded = { ...bp };
     delete loaded.id;
+    delete loaded.hidden;
+    delete loaded.isActive;
     setProfile(loaded);
     await saveProfile(loaded);
     // v1.10.56 (#44) — switching profiles persists immediately, so this IS
@@ -704,6 +709,41 @@ export default function SettingsView({ onSaved }) {
     markProfileSaved(loaded);
     if (onSaved) onSaved(loaded);
     toast(`Switched to ${bp.businessName}`, 'success');
+  };
+
+  // v1.10.85 (#125) - hide a company behind its own PIN, or show it again.
+  const profilesChanged = () => { loadBusinessProfiles(); window.dispatchEvent(new Event('fgsb:profiles-changed')); };
+  const handleHideProfile = async (bp) => {
+    if (businessProfiles.filter((p) => !p.hidden).length < 2) {
+      toast('Keep at least one company that is not hidden, so the app has one to open.', 'warning');
+      return;
+    }
+    const pin = (await promptAction({
+      title: `Hide ${bp.businessName}`,
+      message: 'It leaves the company list until this PIN is typed (company list -> Open a hidden company). Use a PIN different from the app lock. This hides the company from view; it does not encrypt it.',
+      inputType: 'password', placeholder: '6 or 8 digits', confirmLabel: 'Next',
+    }))?.trim();
+    if (!pin) return;
+    if (!/^(\d{6}|\d{8})$/.test(pin)) { toast('The PIN must be 6 or 8 digits.', 'error'); return; }
+    const again = (await promptAction({ title: 'Type the same PIN again', inputType: 'password', placeholder: '6 or 8 digits', confirmLabel: 'Hide company' }))?.trim();
+    if (again !== pin) { if (again !== undefined) toast('The two PINs were not the same. Nothing changed.', 'error'); return; }
+    try {
+      const r = await setCompanyHidePin(bp.id, pin);
+      keepOpened(r.profile, r.key); // stays in the list in this window until a switch or restart
+      toast(`${bp.businessName} is hidden. Open it with its PIN from the company list.`, 'success');
+      profilesChanged();
+    } catch { toast('Could not hide the company.', 'error'); }
+  };
+  const handleShowProfile = async (bp) => {
+    const currentPin = (await promptAction({ title: `Stop hiding ${bp.businessName}`, message: 'Type its PIN.', inputType: 'password', placeholder: '6 or 8 digits', confirmLabel: 'Stop hiding' }))?.trim();
+    if (!currentPin) return;
+    try {
+      await setCompanyHidePin(bp.id, null, currentPin);
+      toast(`${bp.businessName} is in the company list again.`, 'success');
+      profilesChanged();
+    } catch (e) {
+      toast(e?.body?.code === 'wait' ? `Too many wrong tries. Wait ${e.body.wait} seconds.` : 'Wrong PIN. Nothing changed.', 'error');
+    }
   };
 
   const handleDeleteProfile = async (id) => {
@@ -1021,6 +1061,8 @@ export default function SettingsView({ onSaved }) {
 
       {/* v1.9.5 — Backup Management + Trash Bin */}
       <div id="section-backups" style={{ order: 8 }}><BackupAndTrashPanel /></div>
+      {/* v1.10.85 - close the books up to a date; the edit history. */}
+      <div id="section-books" className="glass-panel p-6 mb-6" style={{ order: 8 }}><BooksLockSettings /></div>
 
       {/* v1.10.83 - Business type (first tab) and Features: FeatureSettings.jsx. */}
       <BusinessTypePanel features={features} />
@@ -1058,6 +1100,10 @@ export default function SettingsView({ onSaved }) {
       {/* v1.10.77 (#84) - optional PIN lock. Same order as Region, so it sits right after it. */}
       <div id="section-lock" className="glass-panel p-6 mb-6" style={{ order: 7 }}>
         <AppLockSettings />
+      </div>
+      {/* v1.10.85 - use on a phone or tablet on the same Wi-Fi (needs the PIN above). */}
+      <div id="section-phone" className="glass-panel p-6 mb-6" style={{ order: 7 }}>
+        <PhoneAccessSettings />
       </div>
       <div id="section-privacy" className="glass-panel p-6 mb-6" style={{ order: 7 }}>
         <PrivacyInternet />
@@ -1582,6 +1628,12 @@ export default function SettingsView({ onSaved }) {
                       onClick={() => handleLoadProfile(bp)} disabled={isActive}>
                       {isActive ? 'Current' : 'Switch'}
                     </button>
+                    {/* v1.10.85 (#125) */}
+                    <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}
+                      onClick={() => (bp.hidden ? handleShowProfile(bp) : handleHideProfile(bp))}
+                      title={bp.hidden ? 'In the company list again, for everyone' : 'Leave it out of the company list until its own PIN is typed'}>
+                      <Lock size={13} /> {bp.hidden ? 'Stop hiding' : 'Hide with PIN'}
+                    </button>
                     <button className="icon-btn icon-btn-red" onClick={() => handleDeleteProfile(bp.id)} title="Delete">
                       <Trash2 size={14} />
                     </button>
@@ -1787,7 +1839,9 @@ export default function SettingsView({ onSaved }) {
           <div className="update-available-box">
             <p><strong>New version v{updateInfo.latest} is available!</strong></p>
             {updateInfo.updateHint ? (
-              <p>{updateInfo.updateHint}{updateInfo.releaseUrl && <> <a href={updateInfo.releaseUrl} target="_blank" rel="noopener noreferrer">Open the release page</a></>}</p>
+              <p>{updateInfo.updateHint}{updateInfo.downloadUrl
+                ? <> <a href={updateInfo.downloadUrl} target="_blank" rel="noopener noreferrer">Download the new Mac app</a></>
+                : updateInfo.releaseUrl && <> <a href={updateInfo.releaseUrl} target="_blank" rel="noopener noreferrer">Open the release page</a></>}</p>
             ) : (
               <>
                 <p>Your data is backed up first and is not affected. Click below to update:</p>

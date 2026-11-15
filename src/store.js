@@ -1,8 +1,11 @@
 // File-based storage via local Express API server
 // All data persists as JSON files in the ./data/ folder
 
-import { getFinancialYearLabel, parseLocalDate, nextCounterValue, startFor, numberSeriesFor, counterKeyFor, formatDocNumber, seriesNumberOf, INVOICE_TYPES, savedPdfNameFor, stockUpdates, appliedStock, stockDelta } from './utils';
+import { getFinancialYearLabel, parseLocalDate, nextCounterValue, startFor, numberSeriesFor, counterKeyFor, formatDocNumber, seriesNumberOf, INVOICE_TYPES, savedPdfNameFor, stockUpdates, appliedStock, stockDelta, isModuleEnabled } from './utils';
 import { poCounterKey, formatPoNumber } from './utils/purchaseOrders';
+import { dnCounterKey, formatDnNumber } from './utils/debitNotes';
+import { salesOrderOf, releaseChallansPlan, reabsorbChallansPlan } from './utils/salesOrders';
+import { DEFAULT_LEVEL_NAMES, normaliseLevelNames, priceLevelList } from './utils/priceLevels';
 
 import { logProblem } from './utils/problemLog';
 
@@ -33,9 +36,17 @@ async function apiFetch(url, options = {}) {
     // invoice number). Attach status so callers can branch on it.
     let body = null;
     try { body = await res.json(); } catch { /* non-JSON body */ }
+    // v1.10.85 - a phone removed on the PC (or whose pairing ran out): back to
+    // the pairing page instead of every screen failing.
+    if (res.status === 401 && body?.code === 'not-paired' && typeof location !== 'undefined') location.assign('/pair');
     const err = new Error(body?.error || `API error: ${res.status}`);
     err.status = res.status;
     err.body = body;
+    // v1.10.85 - the books are closed for that date: App.jsx says why, once
+    // for every screen (each screen's own 'Save failed' would not).
+    if (res.status === 423 && body?.code === 'period-locked' && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('fgsb:period-locked', { detail: body }));
+    }
     if (res.status >= 500) {
       logApiProblem(options, url, res.status, err.message);
       err.problemLogged = true;
@@ -45,11 +56,22 @@ async function apiFetch(url, options = {}) {
   return res.json();
 }
 
+// ---- Close the books + edit history (v1.10.85; checked by the server) ----
+export const getPeriodLock = () => apiFetch(`${API}/period-lock`);
+export const setPeriodLock = (upTo, pin) => apiFetch(`${API}/period-lock`, { method: 'POST', body: JSON.stringify({ upTo, ...(pin ? { pin } : {}) }) });
+export const getEditHistory = (limit = 200) => apiFetch(`${API}/edit-history?limit=${encodeURIComponent(limit)}`);
+
 // ---- PIN lock (v1.10.77, #84; checked by the server, see AppLock.jsx) ----
 export const getLockStatus = () => apiFetch(`${API}/lock`);
 export const verifyPin = (pin) => apiFetch(`${API}/lock/verify`, { method: 'POST', body: JSON.stringify({ pin }) });
 // pin null turns the lock off. currentPin is needed when a PIN is already set.
 export const setLockPin = (pin, currentPin) => apiFetch(`${API}/lock/set`, { method: 'POST', body: JSON.stringify({ pin, currentPin }) });
+
+// ---- Phone / tablet access (v1.10.85; server.js PHONE / TABLET ACCESS) ----
+export const getPhoneAccess = () => apiFetch(`${API}/phone-access`);
+export const setPhoneAccess = (enabled) => apiFetch(`${API}/phone-access`, { method: 'POST', body: JSON.stringify({ enabled }) });
+export const newPairingCode = () => apiFetch(`${API}/phone-access/pairing-code`, { method: 'POST' });
+export const removePairedDevice = (id) => apiFetch(`${API}/phone-access/devices/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
 // ---- Invoice Number Settings ----
 const DEFAULT_INV_SETTINGS = {
@@ -225,6 +247,23 @@ export const setMenuOrder = (order) => {
   } catch { /* ignore */ }
   menuChanged();
 };
+
+// v1.10.85 - the names of the price levels (Settings -> Features -> Price
+// levels): three strings, '' = level not used. One per PC like the switches,
+// mirrored to the data folder by prefsMirror.
+const PRICE_LEVELS_KEY = 'gst_priceLevels';
+export const getPriceLevelNames = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem(PRICE_LEVELS_KEY) || 'null');
+    return normaliseLevelNames(Array.isArray(v) ? v : DEFAULT_LEVEL_NAMES);
+  } catch { return normaliseLevelNames(DEFAULT_LEVEL_NAMES); }
+};
+export const setPriceLevelNames = (names) => {
+  try { localStorage.setItem(PRICE_LEVELS_KEY, JSON.stringify(normaliseLevelNames(names))); } catch { /* ignore */ }
+};
+// The levels to offer now: [] while Price levels is switched off.
+export const activePriceLevels = () => (isModuleEnabled('priceLevels', getEnabledModules())
+  ? priceLevelList(getPriceLevelNames()) : []);
 
 // ---- Invoice counter ----
 // Uses the atomic /meta/:key/increment endpoint so two concurrent saves can't both
@@ -410,7 +449,10 @@ export const getAllPurchases = async () => {
 };
 
 export const savePurchase = async (purchase) => {
-  const res = await apiFetch(`${API}/purchases`, { method: 'POST', body: JSON.stringify(purchase) });
+  // v1.10.85 (#168) - _returned (what debit notes take off, see
+  // utils/debitNotes.js withReturns) is worked out when shown, never saved.
+  const { _returned, ...stored } = purchase || {};
+  const res = await apiFetch(`${API}/purchases`, { method: 'POST', body: JSON.stringify(stored) });
   if (res.id) purchase.id = res.id;
   return purchase;
 };
@@ -435,6 +477,40 @@ export const getNextPoNumber = async ({ peek = false, businessKey = '', date = '
     ? nextCounterValue((await apiFetch(`${API}/meta/${key}`)).value)
     : (await apiFetch(`${API}/meta/${key}/increment`, { method: 'POST', body: JSON.stringify({}) })).value;
   return formatPoNumber(next, date);
+};
+
+// ---- v1.10.85 Stock adjustments (damaged, lost, found, ...) ----
+// Saving one moves the product's stock by its quantity; deleting puts it back
+// (applyStockChanges, as invoices and debit notes do). Both use the record the
+// server keeps (it works out stockApplied), so what is put back is exactly
+// what was moved; a delete of one no longer on file fails and moves nothing.
+export const getAllStockAdjustments = async () => apiFetch(`${API}/stock-adjustments`);
+export const saveStockAdjustment = async (adj) => {
+  const res = await apiFetch(`${API}/stock-adjustments`, { method: 'POST', body: JSON.stringify(adj) });
+  const saved = res.record || { ...adj, id: res.id };
+  await applyStockChanges(saved.stockApplied);
+  return saved;
+};
+export const deleteStockAdjustment = async (adj) => {
+  const res = await apiFetch(`${API}/stock-adjustments/${encodeURIComponent(adj.id)}`, { method: 'DELETE' });
+  const moved = res?.record?.stockApplied || {};
+  await applyStockChanges(Object.fromEntries(Object.entries(moved).map(([id, q]) => [id, -q])));
+};
+
+// ---- v1.10.85 (#168) Debit notes (purchase returns) ----
+export const getAllDebitNotes = async () => apiFetch(`${API}/debit-notes`);
+export const saveDebitNote = async (note) => {
+  const res = await apiFetch(`${API}/debit-notes`, { method: 'POST', body: JSON.stringify(note) });
+  return res.id ? { ...note, id: res.id } : note;
+};
+export const deleteDebitNote = async (id) => apiFetch(`${API}/debit-notes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+// The next debit note number for a business, DN/26-27/0001 (peek: shown, not used up).
+export const getNextDnNumber = async ({ peek = false, businessKey = '', date = '' } = {}) => {
+  const key = encodeURIComponent(dnCounterKey(businessKey));
+  const next = peek
+    ? nextCounterValue((await apiFetch(`${API}/meta/${key}`)).value)
+    : (await apiFetch(`${API}/meta/${key}/increment`, { method: 'POST', body: JSON.stringify({}) })).value;
+  return formatDnNumber(next, date);
 };
 
 // ---- Recurring Invoices ----
@@ -463,6 +539,14 @@ export const getAllCashEntries = () => apiFetch(`${API}/cash-book`);
 // Returns the entry as stored (with its id).
 export const saveCashEntry = async (entry) => (await apiFetch(`${API}/cash-book`, { method: 'POST', body: JSON.stringify(entry) })).entry;
 export const deleteCashEntry = (id) => apiFetch(`${API}/cash-book/${encodeURIComponent(id)}`, { method: 'DELETE' });
+
+// ---- v1.10.85 (#175) Bank matching: imported statements and their matches ----
+export const getAllBankStatements = () => apiFetch(`${API}/bank-statements`);
+export const saveBankStatement = async (statement) => {
+  const res = await apiFetch(`${API}/bank-statements`, { method: 'POST', body: JSON.stringify(statement) });
+  return res.id ? { ...statement, id: res.id } : statement;
+};
+export const deleteBankStatement = (id) => apiFetch(`${API}/bank-statements/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
 // ---- Receipts / Payment Vouchers ----
 export const getAllReceipts = async () => {
@@ -499,8 +583,23 @@ export const trashBill = async (bill) => {
   try { await deleteBill(bill.id); } catch (err) { if (moves) await saveBill(bill, { overwrite: true }).catch(() => {}); throw err; }
   let stockWarning = false;
   if (moves) await applyStockChanges(stockDelta(returned, {})).catch(() => { stockWarning = true; });
+  // v1.10.85 - challans this invoice took over from a sales order count again.
+  await syncTakenChallans(bill, true).catch(() => { stockWarning = true; });
   trashSavedPdf(bill).catch(() => {});
   return { stockWarning };
+};
+
+// v1.10.85 - an invoice made from a sales order that took over the order's
+// challans is cancelled or deleted (gone: true): the challans are released and
+// count again; it comes back (gone: false): they are taken in again. See
+// releaseChallansPlan in utils/salesOrders.js. Returns how many changed.
+export const syncTakenChallans = async (invoice, gone) => {
+  if (!salesOrderOf(invoice) || (!gone && (invoice.status || '') === 'cancelled')) return 0;
+  const bills = await getAllBills();
+  const { patches, changes } = gone ? releaseChallansPlan(invoice, bills) : reabsorbChallansPlan(invoice, bills);
+  for (const p of patches) await saveBill(p, { overwrite: true });
+  await applyStockChanges(changes);
+  return patches.length;
 };
 
 // v1.10.84 - an invoice back from the Trash (the Trash tab on the Invoices
@@ -517,6 +616,7 @@ export const restoreBillFromTrash = async (bill) => {
     await saveBill({ ...kept, data: { ...data, stockApplied: back } }, { overwrite: true });
     await applyStockChanges(stockDelta({}, back)).catch(() => {});
   }
+  await syncTakenChallans(kept, false).catch(() => {});
 };
 
 export const deleteReceipt = async (id) => {
@@ -524,18 +624,46 @@ export const deleteReceipt = async (id) => {
 };
 
 // ---- Business Profiles (multi-business) ----
-export const getAllProfiles = async () => {
-  return apiFetch(`${API}/profiles`);
-};
+// v1.10.85 (#125) - without the companies hidden behind a PIN (unless opened
+// in this window); the company switcher needs them all (WithHidden).
+export const getAllProfilesWithHidden = () => apiFetch(`${API}/profiles`);
+export const getAllProfiles = async () => visibleProfiles(await getAllProfilesWithHidden());
 
 export const saveBusinessProfile = async (profile) => {
-  const res = await apiFetch(`${API}/profiles`, { method: 'POST', body: JSON.stringify(profile) });
+  const res = await apiFetch(`${API}/profiles`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...hiddenKeyHeader(profile.id) }, body: JSON.stringify(profile) });
   if (res.id) profile.id = res.id;
+  if (openedHidden.has(profile.id)) openedHidden.set(profile.id, { ...openedHidden.get(profile.id), profile: { ...profile, hidden: true } });
   return profile;
 };
 
+// v1.10.85 (#125) - companies hidden behind their own PIN. The list from the
+// server marks them `hidden`; they are left out of every company list until
+// their PIN is typed in this window, and hidden again on a switch to another
+// company or a restart (opened ids live only in memory).
+// Opened in this window: id -> { profile, key }. The server lists a hidden
+// company as a bare entry; opening it with its PIN gives its details and a
+// key that saving or deleting it needs (X-Hidden-Key).
+const openedHidden = new Map();
+export const visibleProfiles = (list) => (list || [])
+  .map((p) => (p.hidden && openedHidden.has(p.id) ? { ...openedHidden.get(p.id).profile, isActive: p.isActive } : p))
+  .filter((p) => !p.hidden || openedHidden.has(p.id));
+export const hasHiddenProfiles = (list) => (list || []).some((p) => p.hidden && !openedHidden.has(p.id));
+export const isOpenedHidden = (id) => openedHidden.has(id);
+export const openHiddenCompanies = async (pin) => {
+  const res = await apiFetch(`${API}/profiles/unlock`, { method: 'POST', body: JSON.stringify({ pin }) });
+  (res.profiles || []).forEach(({ key, ...profile }) => openedHidden.set(profile.id, { profile, key }));
+  return res.ids || [];
+};
+export const keepOpened = (profile, key) => { if (profile?.id && key) openedHidden.set(profile.id, { profile, key }); };
+export const hideCompaniesAgain = (keepId) => {
+  for (const id of [...openedHidden.keys()]) if (id !== keepId) openedHidden.delete(id);
+};
+const hiddenKeyHeader = (id) => (openedHidden.has(id) ? { 'X-Hidden-Key': openedHidden.get(id).key } : {});
+export const setCompanyHidePin = (id, pin, currentPin) => apiFetch(`${API}/profiles/${encodeURIComponent(id)}/hide-pin`,
+  { method: 'POST', body: JSON.stringify({ pin, currentPin }) });
+
 export const deleteBusinessProfile = async (id) => {
-  return apiFetch(`${API}/profiles/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  return apiFetch(`${API}/profiles/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json', ...hiddenKeyHeader(id) } });
 };
 
 // ---- Export / Import ----
@@ -674,12 +802,15 @@ export const exportAllData = async (selection) => {
   if (sel.products)       data.products = all.products;
   // v1.10.83 (#115) - production entries travel with products: stock is the result of both.
   if (sel.products && all.productions) data.productions = all.productions;
+  if (sel.products && all.stockAdjustments) data.stockAdjustments = all.stockAdjustments; // v1.10.85 - so do stock adjustments
   if (sel.expenses)       data.expenses = all.expenses;
   if (sel.expenses)       data.cashBook = all.cashBook; // v1.10.83 - the cash book travels with expenses
+  if (sel.expenses)       data.bankStatements = all.bankStatements; // v1.10.85 (#175) - so do bank statements
   if (sel.recurring)      data.recurring = all.recurring;
   if (sel.receipts)       data.receipts = all.receipts;
   if (sel.purchases)      data.purchases = all.purchases;
   if (sel.purchases)      data.purchaseOrders = all.purchaseOrders; // v1.10.83 (#112) - travel with purchase bills
+  if (sel.purchases)      data.debitNotes = all.debitNotes; // v1.10.85 (#168) - so do purchase returns
   if (sel.meta)           data.meta = all.meta; // includes regionMode, enabledModules, etc. on server
   if (sel.localStorage)   data.localStorage = collectLocalStorage();
 
@@ -729,12 +860,15 @@ export const importData = async (jsonString, selection) => {
   if (sel.termsTemplates && data.termsTemplates) payload.termsTemplates = data.termsTemplates;
   if (sel.products && data.products)             payload.products = data.products;
   if (sel.products && data.productions)          payload.productions = data.productions;
+  if (sel.products && data.stockAdjustments)     payload.stockAdjustments = data.stockAdjustments;
   if (sel.expenses && data.expenses)             payload.expenses = data.expenses;
   if (sel.expenses && data.cashBook)             payload.cashBook = data.cashBook;
+  if (sel.expenses && data.bankStatements)       payload.bankStatements = data.bankStatements;
   if (sel.recurring && data.recurring)           payload.recurring = data.recurring;
   if (sel.receipts && data.receipts)             payload.receipts = data.receipts;
   if (sel.purchases && data.purchases)           payload.purchases = data.purchases;
   if (sel.purchases && data.purchaseOrders)      payload.purchaseOrders = data.purchaseOrders;
+  if (sel.purchases && data.debitNotes)          payload.debitNotes = data.debitNotes;
   if (sel.meta && data.meta)                     payload.meta = data.meta;
 
   const result = await apiFetch(`${API}/import`, { method: 'POST', body: JSON.stringify(payload) });

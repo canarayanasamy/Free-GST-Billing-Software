@@ -2,13 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import QRCode from 'qrcode';
 import SignatureImages from './SignatureImages';
 import DOMPurify from 'dompurify';
-import { numberToWords, printedSubtotal, formatCurrency, INVOICE_TYPES, getCountryConfig, CURRENCY_NAMES, formatExchangeRateLine, getAccountById, getPaperSize, resolveLineDiscount, htmlHasText, splitNumberedTerms, invoiceOptionOn, DEFAULT_DECLARATION, filledOrderDetails, formatShortDate, isModuleEnabled, getStateCode, COUNTRIES } from '../utils';
+import { sectionPrint, numberToWords, printedSubtotal, formatCurrency, INVOICE_TYPES, getCountryConfig, CURRENCY_NAMES, formatExchangeRateLine, getAccountById, getPaperSize, resolveLineDiscount, htmlHasText, splitNumberedTerms, invoiceOptionOn, DEFAULT_DECLARATION, filledOrderDetails, formatShortDate, isModuleEnabled, getStateCode, COUNTRIES } from '../utils';
 import { getEnabledModules } from '../store';
 import { getPrintSettings, getLabel, formatCurrencyEx, formatDate } from '../utils/printSettings';
 import InvoiceGridLayout, { HsnSummaryTable } from './InvoiceGridLayout';
 import { exportDeclaration } from '../utils/lut';
 import { purposeCodeText } from '../utils/purposeCodes';
-import { sizeLabel, sizePieces, lineSqft, sizeHasDims } from '../utils/glass';
+import { sizeLabel, sizePieces, lineSqft, sizeHasDims, rftLabel } from '../utils/glass';
 
 // v1.10.36 — Optional `previewOnly` prop suppresses the internal
 // `id="invoice-preview"`. The parent's on-screen preview keeps the id
@@ -76,6 +76,7 @@ const InvoicePreview = React.forwardRef(({ profile: profileProp, client, details
   // Qty column then shows their pieces. NA lines (#143) print "-".
   const hasSize = (items || []).some((i) => i.size);
   const printedQty = (item) => (item.size ? sizePieces(item)
+    : item.rft ? rftLabel(item) // v1.10.85 - "19.5 sqft" / "27 rft"
     : item.unit === 'NA' ? '-'
       : `${item.quantity}${showItemUnit && item.unit ? ` ${item.unit}` : ''}`);
   const showState = opt('showState');
@@ -264,7 +265,14 @@ const InvoicePreview = React.forwardRef(({ profile: profileProp, client, details
   const pdfStyleVariant = pdfStyleRaw; // full value for CSS class targeting
 
   // Check if any item has discount
-  const hasAnyDiscount = showDiscount && items.some(item => (item.discount || 0) > 0);
+  // v1.10.85 (#190) - or a part of a whole-bill discount taken before GST, so
+  // Qty x Rate - Disc. = Amount on every line.
+  const hasAnyDiscount = showDiscount && items.some(item => (item.discount || 0) > 0 || (item.billDiscShare || 0) > 0);
+  // v1.10.85 (#190) - the before-GST bill discount is inside totalDiscount;
+  // printed on its own line, the line discounts on theirs.
+  const tradeDisc = Number(totals?.billDiscountBeforeGst) || 0;
+  const lineDisc = Math.round(((Number(totals?.totalDiscount) || 0) - tradeDisc) * 100) / 100;
+  const tradeDiscLabel = `Trade discount (before GST)${totals?.invoiceDiscountType === 'percent' && totals?.invoiceDiscountValue > 0 ? ` (${totals.invoiceDiscountValue}%)` : ''}`;
 
   // v1.10.73 - one per-line calculation for every design, the item table and
   // the HSN/SAC summary, so they can never disagree with each other.
@@ -740,6 +748,7 @@ const InvoicePreview = React.forwardRef(({ profile: profileProp, client, details
                 // #140 - a size line: "25 x 30 x 2 = 12.5 sqft" (a manual one has no rate).
                 const qtyBit = item.size
                   ? `${sizeHasDims(item.size) ? `${sizeLabel(item.size)} x ${sizePieces(item)} = ` : ''}${lineSqft(item)} sqft`
+                  : item.rft ? rftLabel(item)
                   : item.unit === 'NA' ? '' : `${qty}${unitBit}`;
                 const showLineRate = showRate && !item.size?.manual;
                 return (
@@ -779,10 +788,16 @@ const InvoicePreview = React.forwardRef(({ profile: profileProp, client, details
                 <span>{cap('Subtotal')}</span>
                 <span style={{ textAlign: 'right' }}>{amt(printedSubtotal(totals))}</span>
               </div>
-              {Number(totals?.totalDiscount) > 0 && (
+              {lineDisc > 0 && (
                 <div style={rowStyle}>
                   <span>{cap('Discount')}</span>
-                  <span style={{ textAlign: 'right' }}>-{amt(totals.totalDiscount)}</span>
+                  <span style={{ textAlign: 'right' }}>-{amt(lineDisc)}</span>
+                </div>
+              )}
+              {tradeDisc > 0 && (
+                <div style={rowStyle}>
+                  <span>{cap(tradeDiscLabel)}</span>
+                  <span style={{ textAlign: 'right' }}>-{amt(tradeDisc)}</span>
                 </div>
               )}
               {showGST && Number(totals?.cgst) > 0 && (
@@ -1106,7 +1121,7 @@ const InvoicePreview = React.forwardRef(({ profile: profileProp, client, details
     words: (n) => (currencySymbol === 'INR' ? `INR ${numberToWords(n)}` : amountInWords(n)),
     shortDate: formatShortDate,
     isServices: (options.invoiceMode || 'goods') === 'services',
-    docLabel: ({ quotation: 'Quotation', proforma: 'Proforma', 'credit-note': 'Credit Note', 'delivery-challan': 'Challan' })[invoiceType] || 'Invoice',
+    docLabel: ({ quotation: 'Quotation', proforma: 'Proforma', 'credit-note': 'Credit Note', 'delivery-challan': 'Challan', 'sales-order': 'Sales Order' })[invoiceType] || 'Invoice',
     placeOfSupply: placeOfSupplyText, clientAbroad, clientCountry, clientTaxIdLabel, paymentLink, purposeCode,
     shipTo: shipToParty,
     sig: gridSig,
@@ -1369,10 +1384,16 @@ const InvoicePreview = React.forwardRef(({ profile: profileProp, client, details
               <span>{fmt(printedSubtotal(totals))}</span>
             </div>
           )}
-          {totals.totalDiscount > 0 && (
+          {lineDisc > 0 && (
             <div className="inv-total-row" style={{ color: '#dc2626' }}>
               <span>Discount</span>
-              <span>- {fmt(totals.totalDiscount)}</span>
+              <span>- {fmt(lineDisc)}</span>
+            </div>
+          )}
+          {tradeDisc > 0 && (
+            <div className="inv-total-row" style={{ color: '#dc2626' }}>
+              <span>{tradeDiscLabel}</span>
+              <span>- {fmt(tradeDisc)}</span>
             </div>
           )}
           {showGST && (
@@ -1409,7 +1430,7 @@ const InvoicePreview = React.forwardRef(({ profile: profileProp, client, details
           )}
           {totals.tcsAmount > 0 && (
             <div className="inv-total-row">
-              <span>TCS{options.tcsSection ? ` (${options.tcsSection} @ ${options.tcsRate}%)` : ''}</span>
+              <span>TCS{sectionPrint(options.tcsSection, options.tcsRate)}</span>
               <span>{fmt(totals.tcsAmount)}</span>
             </div>
           )}
@@ -1445,7 +1466,7 @@ const InvoicePreview = React.forwardRef(({ profile: profileProp, client, details
           {totals.tdsAmount > 0 && (
             <>
               <div className="inv-total-row" style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '0.25rem', borderTop: '1px dashed #e2e8f0', paddingTop: '0.4rem' }}>
-                <span>Less: TDS{options.tdsSection ? ` (${options.tdsSection} @ ${options.tdsRate}%)` : ''}</span>
+                <span>Less: TDS{sectionPrint(options.tdsSection, options.tdsRate)}</span>
                 <span>− {fmt(totals.tdsAmount)}</span>
               </div>
               <div className="inv-total-row" style={{ fontWeight: 600, color: '#0f766e', fontSize: '0.78rem' }}>

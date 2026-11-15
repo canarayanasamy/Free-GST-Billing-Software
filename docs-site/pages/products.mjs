@@ -22,7 +22,7 @@ export default [
   <tr><td>${ui('Make')}</td><td>Only when manufacturing is turned on: records goods you made from raw materials. See <a href="#manufacturing">Manufacturing</a>.</td></tr>
   <tr><td>${ui('Add Product')}</td><td>Opens the product form. See <a href="#add-product">Adding a product or service</a>.</td></tr>
 </table></div>
-<p><b>Search by name or HSN...</b> narrows the list as you type. The cross clears it.</p>
+<p><b>Search by name or HSN...</b> narrows the list as you type (with <a href="#barcodes">Barcodes</a> on, it finds the barcode too). The cross clears it.</p>
 <p><b>Deleting many products at once:</b> tick the box at the start of each row (the box in the header ticks every product the list shows), then click ${ui('Delete selected')} and confirm. Only ticked products the list shows are deleted; invoices that used them keep their lines. ${ui('Clear')} unticks them all.</p>
 <p>The <b>Products &amp; Services</b> table:</p>
 <div class="table-wrap"><table>
@@ -69,9 +69,10 @@ export default [
   <tr><td>Purchase Price</td><td>What you pay the supplier for one unit. Filled in on new purchase bills, used to value your stock and to cost things you make.</td></tr>
   <tr><td>Selling Price</td><td>What you charge for one unit. Filled in on new invoices, and shown as the <b>Rate</b> in the list. Type it the same way your invoices work: before GST, unless you make <a href="invoices.html#tax-inclusive">tax-inclusive</a> invoices.</td></tr>
   <tr><td>GST %</td><td>The GST rate, such as 5 or 18. 0 to 100; blank counts as 0. Since 22 September 2025 most goods are at 5%, 18% or 40%.</td></tr>
-  <tr><td>Unit</td><td>Pcs to start. Pcs, Nos, Kg, g, Tonne, Ltr, ml, Mtr, cm, Ft, In, Sq.ft, Sq.m, Hrs, Day, Week, Month, Year, Visit, Session, Project, Word, Page, Box, Dozen, Pair, Set, Bag, Roll, Bottle, and your own <a href="invoices.html#items">custom units</a>, marked ★.</td></tr>
+  <tr><td>Unit</td><td>Pcs to start. Pcs, Nos, Kg, g, Tonne, Ltr, ml, Mtr, cm, Ft, In, Rft, Sq.ft, Sq.m, Hrs, Day, Week, Month, Year, Visit, Session, Project, Word, Page, Box, Dozen, Pair, Set, Bag, Roll, Bottle, and your own <a href="invoices.html#items">custom units</a>, marked ★.</td></tr>
   <tr><td>Stock Quantity</td><td>Goods only. How many you have now. After this, sales and purchases change it for you; see <a href="#stock">How stock is counted</a>. Left blank, the stock is <b>not counted</b>: the list shows a dash, never <b>Out of Stock</b>, until you type a number, buy it on a purchase bill or sell it.</td></tr>
   <tr><td>Description (optional)</td><td>For your own reference. It shows when you point at the name in the list.</td></tr>
+  <tr><td>Price for each level (optional)</td><td>Only when <a href="settings.html#price-levels">Price levels</a> is on: a price for each level, such as Wholesale and Dealer. Blank uses the selling price for that level.</td></tr>
   <tr><td>Made here (from raw materials)</td><td>Only when manufacturing is turned on. See <a href="#bill-of-materials">Bill of materials</a>.</td></tr>
 </table></div>
 <p>Changing a product's price or GST % does not change invoices already made. New invoices use the new figures.</p>
@@ -132,6 +133,8 @@ export default [
   <li><strong>Buying</strong>: saving a <a href="purchases.html#stock">purchase bill</a> adds the quantity in, and adds any new item to your products.</li>
   <li><strong>Cancelling</strong> an invoice puts its stock back; un-cancelling takes it out again. Deleting an invoice puts its stock back too.</li>
   <li><strong>Making</strong>: a <a href="#make-production">production entry</a> uses up raw materials and adds the finished product.</li>
+  <li><strong>Adjusting</strong>: an <a href="#stock-adjust">Adjust stock</a> entry adds or removes goods damaged, lost, found or used in the shop.</li>
+  <li><strong>Boxes</strong>: a line in a product's <a href="#alternate-units">second unit</a> counts in its own unit: 2 boxes of 12 move 24 pieces.</li>
 </ul>
 <p><b>Out of Stock</b> shows in red at zero or below. Purchases and deletions never take stock below zero; selling more than you have does, so you notice.</p>
 <p>A <a href="#goods-or-service">service</a> is never counted. Goods whose stock box was left blank are not counted either until stock first moves: a purchase bill adds to them from zero, and a sale takes them below zero, so you notice.</p>
@@ -139,19 +142,40 @@ export default [
 </section>
 
 <section id="stock-adjust">
-<h3>Correcting stock by hand</h3>
-<p>There is no separate stock adjustment screen. After counting your shelves, or for breakage, a free sample or opening stock:</p>
+<h3>Adjusting stock (damaged, lost, found)</h3>
+<p>For goods that leave or come back without a bill, use the sliders button in a product's row (<b>Adjust stock</b>):</p>
 <ol class="steps">
-  <li><strong>One product</strong>Click its pencil, type the real count in <b>Stock Quantity</b>, and click ${ui('Update')}.</li>
-  <li><strong>Many products</strong>Click ${ui('Bulk edit')}, type the counts in the <b>Stock</b> column, and click ${ui('Save changes')}.</li>
+  <li><strong>Reason</strong>Choose <b>Damaged</b>, <b>Lost or stolen</b>, <b>Used in the shop</b> (these remove), <b>Found</b> (adds) or <b>Opening stock correction</b> (either).</li>
+  <li><strong>Quantity and date</strong>Type how many, in the product's own unit, and the date it happened. <b>Add or remove</b> follows the reason; change it if needed. A note is optional.</li>
+  <li><strong>Save</strong>Click ${ui('Save adjustment')}. The stock moves at once, and the window showed what it will be.</li>
 </ol>
-<p>Stock typed in by hand has no date, so the stock report counts it as if it changed today. Write the reason in the product's description if you want to remember it.</p>
-<div class="note info"><p>Stock is one count per product. There are no batches, expiry dates, serial numbers or godowns. See <a href="limitations.html#stock-limits">Limitations</a>.</p></div>
+<p>Each adjustment is kept with its date and reason, listed under the <a href="reports.html#stock">stock report</a> for its month, and counted when that report works out stock on an earlier date. The bin there deletes one and puts the stock back. With the books <a href="backup.html#close-books">closed</a> up to a date, an adjustment on or before it cannot be added or deleted.</p>
+<p>To set many counts at once after counting the shelves, ${ui('Bulk edit')} still works: type the counts in the <b>Stock</b> column. Stock typed in by hand has no date, so the stock report counts it as if it changed today.</p>
+<div class="note info"><p>Stock is one count per product. There are no batches, expiry dates or godowns. Serial numbers can be written on <a href="purchases.html">purchase bill</a> lines. See <a href="limitations.html#stock-limits">Limitations</a>.</p></div>
 </section>
 
 <section id="low-stock">
 <h2>Low-stock alerts</h2>
 <p>A product at or below your threshold shows its stock in amber here, is listed on the <a href="dashboard.html#low-stock">Dashboard</a>, and adds to the notification bell. The threshold is 5 to start; change it, or turn alerts off, in <a href="settings.html#stock">Settings</a>. It is one threshold for every product. With alerts off, stock is still counted and <b>Out of Stock</b> still shows in red.</p>
+<p><b>Low stock only</b> beside the search lists just those products. With <a href="purchases.html#purchase-orders">purchase orders</a> turned on, ${ui('Make purchase order')} then opens a new purchase order with them: enough of each to reach twice the threshold (threshold x 2 - stock, at least 1), at its purchase price. Choose the supplier, check the quantities and save; nothing is ordered until you do. The same button is on the Dashboard's low-stock strip.</p>
+</section>
+
+<section id="categories">
+<h2>Categories and brands</h2>
+<p>Group your products, such as <b>Garments &gt; Men &gt; Shirts &gt; Formal</b>: a main category and up to 3 levels under it, typed with <b>&gt;</b> between them in the product form's <b>Category</b> box (the ones already used are offered as you type). <b>Brand</b> is a box of its own. Both are optional, and they are the "stock groups" some programs have: one tree, not two.</p>
+<p>Once a product has one, the list shows them under its name, and filters appear beside the search: <b>All categories</b> and <b>All brands</b>. Choosing a category also shows everything under it (Garments shows Men, Shirts and Formal too). The same filters are on <a href="reports.html#product-filters">Product Performance</a> and the <a href="reports.html#stock">stock report</a>. The CSV export and import carry <code>Category</code> and <code>Brand</code> columns.</p>
+</section>
+
+<section id="alternate-units">
+<h2>Alternate units (Box = 12 Pcs)</h2>
+<p>For goods you sell or buy both loose and by the box: open the product, click <b>+ Also sold or bought in a second unit</b>, and fill in <b>1 Box = 12 Pcs</b> (the second unit from the list, and how many of the product's own unit are in it). Optionally type a price per box; left blank, a box costs 12 x the selling price.</p>
+<ul>
+  <li><strong>Invoice</strong>: after picking the product, choose <b>Box</b> in the line's Unit. The rate becomes the box price; back to Pcs, the piece price again.</li>
+  <li><strong>Purchase bill</strong>: a Unit box appears on the line of such a product: Pcs, or Box of 12 at 12 x the purchase price.</li>
+  <li><strong>Stock</strong> always counts the product's own unit: selling 2 boxes takes out 24 Pcs, buying 3 boxes adds 36. The purchase price saved from a bill is per piece.</li>
+  <li><strong>GSTR-1</strong>: the HSN summary reports pieces (PCS) and the quantity in pieces, as the portal expects one unit per HSN line.</li>
+</ul>
+<p>Invoices and bills made before keep their units as they were.</p>
 </section>
 
 <section id="import">
@@ -180,14 +204,52 @@ export default [
   <tr><td><code>GST %</code> (or <code>GST Rate</code>, <code>Tax %</code>)</td><td>GST rate, such as 18. 0 to 100.</td></tr>
   <tr><td><code>Stock</code> (or <code>Quantity</code>, <code>Opening Stock</code>)</td><td>Opening stock of goods. Leave it blank for a service, or for goods you do not count.</td></tr>
   <tr><td><code>Description</code></td><td>Optional</td></tr>
+  <tr><td><code>Barcode</code> (or <code>Bar code</code>, <code>EAN</code>, <code>UPC</code>)</td><td>Optional. The product's <a href="#barcodes">barcode</a>. A code another product already has is refused, with its row.</td></tr>
+  <tr><td><code>Wholesale price</code> (the level's name + <code>price</code>, or <code>Level 2 price</code>)</td><td>Only read when <a href="settings.html#price-levels">Price levels</a> is on: the product's price for that level. One column per level. The Products export writes them the same way.</td></tr>
 </table></div>
 <p>The sample file looks like this:</p>
-<pre><code>Name,Type,HSN/SAC,Unit,Purchase Price,Selling Price,GST %,Stock,Description
-Demo A4 Paper Ream 75 GSM,Goods,4802,Nos,220,280,18,50,Sample goods row - replace with your own
-Demo Printing service,Service,998912,Page,,5,18,,Sample service row - a service has no stock</code></pre>
+<pre><code>Name,Type,HSN/SAC,Unit,Purchase Price,Selling Price,GST %,Stock,Description,Barcode
+Demo A4 Paper Ream 75 GSM,Goods,4802,Nos,220,280,18,50,Sample goods row - replace with your own,
+Demo Printing service,Service,998912,Page,,5,18,,Sample service row - a service has no stock,</code></pre>
 <p>Products you already have (same name, any capitals) are skipped, and so are repeats inside the file, so importing the same file twice is safe. The CSV saved by the ${ui('CSV')} button above the list uses the same columns, so you can export, edit in Excel and import into another copy of the app.</p>
 <div class="note info"><p><b>Old invoices</b> are imported somewhere else: on the Dashboard, with ${ui('CSV import / export')}, which has its own template. See <a href="dashboard.html#csv">Importing and exporting invoices as CSV</a>. The link at the bottom of the import window goes there too.</p></div>
 <div class="note tip"><strong>Something wrong?</strong><p>A row is listed as a problem, such as "Row 4 (Tea): GST % must be 0 to 100" or "Type must be Goods or Service": fix that row in the file and choose it again (the rows already imported are skipped). Nothing is read: the file is not a plain CSV, or the headings are not in the first row. An <code>.xlsx</code> file renamed to <code>.csv</code> does not work. See <a href="troubleshooting.html#csv-import">A CSV import did not work</a>.</p></div>
+</section>
+
+<section id="barcodes">
+<h2>Barcodes</h2>
+<p>Give a product a barcode, and at the counter a USB barcode scanner adds it to the invoice in one beep. You can also print barcode labels for goods that have none. It is on to start for shops, wholesale and manufacturing; turn it on or off in <a href="settings.html#features">Settings → Features</a> (${ui('Barcodes')}, under the Products screen). Turning it off hides it; the codes stay saved.</p>
+<ol class="steps">
+  <li><strong>Open the product</strong>Click ${ui('Add Product')}, or the pencil of a product.</li>
+  <li><strong>Its barcode</strong>Click in <b>Barcode (optional)</b> and scan the code printed on the pack, or type it. Goods with no code of their own: click ${ui('Make one')}. The app gives the shop's own next code (20000001, 20000002, ...), to print on <a href="#barcode-labels">labels</a>.</li>
+  <li><strong>Save</strong>Click ${ui('Save')}. Each product needs its own code: one that another product already has is refused, with that product's name.</li>
+</ol>
+<p>The code shows in small letters under the product name in the list, and <b>Search by name, HSN or barcode...</b> finds it. Imports and the ${ui('CSV')} / ${ui('Excel')} export carry it as the <code>Barcode</code> column (see <a href="#import">Importing products</a>).</p>
+</section>
+
+<section id="barcode-scan">
+<h3>Scanning on an invoice</h3>
+<p>Once a product has a barcode, <b>New invoice</b> shows a <b>Scan barcode</b> box above the line items. Click in it and scan: the product goes on as a line with its rate, HSN, GST and unit, as if you had picked it from the suggestions. Scan the same product again and its quantity goes up by 1, on the same line. The box empties after each scan, so you can go on scanning. A code that no product has shows <b>No product has the barcode ...</b>: add it to the product first.</p>
+<p>A scanner is a keyboard that types the code and presses Enter, so you can also scan (or type) a code into the <b>Item</b> box of a line and press Enter, and on a purchase bill into the item <b>Name</b> box. The box is not shown on a services invoice.</p>
+</section>
+
+<section id="barcode-labels">
+<h3>Printing barcode labels</h3>
+<ol class="steps">
+  <li><strong>Choose the products</strong>On Products, tick them and click ${ui('Print labels')} in the bar above the list. Or, for goods just bought: open the purchase bill (the eye in the Purchases list) and click ${ui('Print labels for this purchase')}: each product gets one label per piece bought (2.5 kg makes 3), matched to your products by name.</li>
+  <li><strong>How many</strong>Type the number of labels for each product. A product with no barcode gets none; ${ui('Give them a code')} makes codes for them, as ${ui('Make one')} does.</li>
+  <li><strong>The labels</strong>Under <b>Labels</b> choose your sheet or roll, under <b>Price on the label</b> the selling price, the MRP (the selling price with GST) or no price, and tick or untick <b>Business name</b>. The app remembers these.</li>
+  <li><strong>Print</strong>The preview shows the sheets as they print. Click ${ui('Print')}, and in the print window set the scale to <b>100%</b> (Actual size, not Fit to page) and the margins to <b>None</b>.</li>
+</ol>
+<div class="table-wrap"><table>
+  <tr><th>Labels</th><th>For</th></tr>
+  <tr><td>A4 sheet, 65 labels (38 x 21 mm)</td><td>5 across, 13 down</td></tr>
+  <tr><td>A4 sheet, 40 labels (48 x 25 mm)</td><td>4 across, 10 down</td></tr>
+  <tr><td>A4 sheet, 24 labels (64 x 34 mm)</td><td>3 across, 8 down</td></tr>
+  <tr><td>Thermal roll, 50 x 25 mm</td><td>A label printer: one label per page. Choose the 50 x 25 mm label size in the printer's own settings too.</td></tr>
+</table></div>
+<p>Each label shows the business name and price if chosen, the item name, the barcode (Code 128, which every scanner reads) and its digits under it.</p>
+<div class="note tip"><strong>Labels a little off the sheet?</strong><p>Print one sheet on plain paper first and hold it against a label sheet. If it is shifted or smaller, the print window's scale is not 100% or its margins are not None.</p></div>
 </section>
 
 <section id="manufacturing">

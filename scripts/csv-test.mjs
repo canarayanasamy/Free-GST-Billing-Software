@@ -11,7 +11,7 @@
 // the fix breaks every sum a user runs over an exported column.
 
 import { toCsvCell, toCsvLine } from '../src/utils.js';
-import { dateOrderNote, parseCsv, toIsoDate, toNum, salesCsvToBills, billsToSalesCsv, purchaseCsvToRecords, purchasesToCsv, SALES_TEMPLATE, PURCHASE_TEMPLATE, receivedByInvoice, newProductsFromBills } from '../src/utils/bulkCsv.js';
+import { dateOrderNote, parseCsv, toIsoDate, toNum, salesCsvToBills, billsToSalesCsv, purchaseCsvToRecords, purchasesToCsv, SALES_TEMPLATE, PURCHASE_TEMPLATE, receivedByInvoice, newProductsFromBills, marketplaceOrdersTable } from '../src/utils/bulkCsv.js';
 import { productsCsvToList, clientsCsvToList } from '../src/utils/listCsv.js';
 import { readFileSync } from 'fs';
 
@@ -105,6 +105,14 @@ console.log('\n[Review] Import never merges different invoices or double-books a
   const back = salesCsvToBills(billsToSalesCsv(src.bills), { profile: prof });
   eq(`${src.bills[0].totalAmount}`, `${Math.round(3 * 290.3 * 1.18 - 50)}`, 'Bill discount and round-off are applied on import');
   eq(back.bills[0].totalAmount, src.bills[0].totalAmount, 'An exported invoice re-imports to the same total');
+  // v1.10.85 (#190) - "Bill Discount Before GST" = Yes: a trade discount, GST on the reduced value.
+  const trade = salesCsvToBills(head.replace('GST %\n', 'GST %,Bill Discount,Bill Discount Before GST\n') + '10,2026-10-01,Alpha Traders,Punjab,Pens,10,100,18,100,Yes\n', { profile: prof });
+  eq(`${trade.bills[0].data.totals.taxableAmount}|${trade.bills[0].totalAmount}`, '900|1062', 'Bill Discount Before GST: GST on 900 (1,000 - 100), total 1,062');
+  eq(trade.bills[0].data.items[0].billDiscShare, 100, 'and the saved line carries its part (GSTR-1 reads it)');
+  const tradeBack = salesCsvToBills(billsToSalesCsv(trade.bills), { profile: prof });
+  eq(tradeBack.bills[0].totalAmount, 1062, 'it re-imports to the same total');
+  const cash = salesCsvToBills(head.replace('GST %\n', 'GST %,Bill Discount,Bill Discount Before GST\n') + '11,2026-10-01,Alpha Traders,Punjab,Pens,10,100,18,100,No\n', { profile: prof });
+  eq(cash.bills[0].totalAmount, 1080, 'No (or blank): after GST as before, 1,180 - 100');
 
   const existing = [{ supplierName: 'Ravi Paper Mart', supplierGstin: '03AAAAA1111A1Z1', invoiceNumber: 'RP-9' }];
   const p = purchaseCsvToRecords('Invoice Number,Invoice Date,Supplier Name,Item Name,Quantity,Rate\nRP-9,2026-10-01,ravi paper mart,A4 Paper,10,250\n', { existing });
@@ -149,7 +157,9 @@ console.log('\n[#134] The Products export imports back, every column');
   // Today's export headings, read from the Products screen itself, so a change
   // to them that the import does not follow fails here.
   const src = readFileSync(new URL('../src/components/InventoryView.jsx', import.meta.url), 'utf8');
-  const headers = JSON.parse((/headers=\{(\[[^\]]*\])\}/.exec(src) || [])[1].replace(/'/g, '"'));
+  // v1.10.85 - the price-level columns (", ...levelCsvHeaders(levels)") are
+  // added only while Price levels is on; scripts/price-levels-test.mjs reads them.
+  const headers = JSON.parse((/headers=\{(\[[^\]]*\])\}/.exec(src) || [])[1].replace(/,\s*\.\.\.\w+\(\w+\)/g, '').replace(/'/g, '"'));
   const row = { Name: 'Pen', Type: 'Goods', 'HSN/SAC': '9608', 'Purchase price': 6, 'Selling price': 10, 'GST %': 12, Unit: 'Nos', Stock: 40 };
   const now = productsCsvToList([toCsvLine(headers), toCsvLine(headers.map((h) => row[h] ?? ''))].join('\n'), []).products[0];
   eq(JSON.stringify([now?.hsn, now?.purchasePrice, now?.sellingPrice, now?.taxPercent, now?.unit, now?.stock]), JSON.stringify(['9608', 6, 10, 12, 'Nos', 40]),
@@ -237,6 +247,25 @@ console.log('\n[#130] Files exported from Vyapar (layouts seen in real exports)'
   eq(parties.clients.map((c) => `${c.name}|${c.phone}|${c.address}`).join(), 'Riya Sharma|9876543210|4 Mall Road, Ludhiana', 'Vyapar party columns map onto clients');
   eq(toIsoDate('45383'), '2024-04-01', 'a date number in a CSV too');
   eq(toIsoDate('2026'), '', 'a plain year is not a date');
+}
+
+// #172 / #179 (v1.10.85): a Flipkart orders report (made-up rows) becomes tax
+// invoices: GST-inclusive Invoice Amount, tax RATES in IGST/CGST/SGST ("NA"),
+// mm/dd/yy dates, order ID + tracking ID in the order details; returns noted.
+{
+  const head = 'Ordered On,Shipment ID,ORDER ITEM ID,Order Id,HSN CODE,Order State,Order Type,FSN,SKU,Product,Invoice No.,CGST,IGST,SGST,Invoice Date (mm/dd/yy),Invoice Amount,Selling Price Per Item,Shipping and Handling Charges,Quantity,Price inc. FKMP Contribution & Subsidy,Buyer name,Ship to name,Address Line 1,Address Line 2,City,State,PIN Code,Dispatch After date,Dispatch by date,Form requirement,Tracking ID';
+  const rows = [
+    'Oct 26 2026,S1,I1,OD100001,7323,Delivered,NON_FBF,F1,SKU1,Steel Tiffin,FKTEST0001,NA,5,NA,10/26/26,210,180,0,2,210,Asha Test,Asha Test,Line 1,,Pune,Maharashtra,411001,,,,FMPC0000001',
+    'Oct 27 2026,S2,I2,OD100002,3923,Returned,NON_FBF,F2,SKU2,Plastic Box,FKTEST0002,9,NA,9,10/27/26,118,100,0,1,118,Ravi Test,Ravi Test,Line 2,,Jaipur,Rajasthan,302001,,,,FMPC0000002',
+  ];
+  const r = salesCsvToBills([head, ...rows].join('\n'), { profile: { businessName: 'DiceCodes', state: 'Rajasthan', gstin: '08ABCDE1234F1Z5' } });
+  const [a, b] = r.bills;
+  eq(r.bills.length, 2, '#172 a Flipkart orders report imports one invoice per order');
+  eq(`${a.invoiceNumber}|${a.invoiceDate}|${a.totalAmount}|${a.data.items[0].rate}|${a.data.items[0].taxPercent}`, 'FKTEST0001|2026-10-26|210|105|5', '#172 GST-inclusive amount, rate = amount / qty, IGST rate, mm/dd/yy date');
+  eq(`${a.data.details.buyerOrderNo}|${a.data.details.dispatchDocNo}|${a.data.details.dispatchedThrough}`, 'OD100001|FMPC0000001|Flipkart', '#172 order ID and AWB land in the order details');
+  eq(`${b.data.items[0].taxPercent}|${b.totalAmount}`, '18|118', '#172 CGST + SGST rates add up (9 + 9)');
+  eq(r.warnings.some((w) => /1 order was returned/.test(w)), true, '#172 returned orders are counted in a note');
+  eq(marketplaceOrdersTable('Invoice Number,Client Name\n1,X'), null, '#172 an ordinary CSV is not taken for a Flipkart file');
 }
 
 // #170: an invoice import adds new items to Products, never changes saved ones.

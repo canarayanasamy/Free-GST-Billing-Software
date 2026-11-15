@@ -1,13 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Users, Search, FileText, ChevronDown, ChevronUp, Trash2, X, MessageCircle, Mail, Plus, Edit3, Copy, Upload, Download } from 'lucide-react';
 import HelpButton from './HelpButton';
-import { getAllClients, getAllBills, deleteClient, saveClient, saveBill, getProfile, deleteReceipt, trashBill } from '../store';
-import { formatCurrency, INVOICE_TYPES, markPaidPatch, markUnpaidPatch, salesSign, countsAsSales, isCancelledBill, amountDue, localToday, parseLocalDate } from '../utils';
+import { getAllClients, getAllBills, deleteClient, saveClient, saveBill, getProfile, deleteReceipt, trashBill, getAllReceipts } from '../store';
+import { formatCurrency, INVOICE_TYPES, markPaidPatch, markUnpaidPatch, salesSign, countsAsSales, isCancelledBill, amountDue, localToday, parseLocalDate, belongsToProfile } from '../utils';
 import { getPrintSettings } from '../utils/printSettings';
 import { openWhatsAppShare, invoiceShareMessage } from '../utils/share';
 import { confirmAction } from './ConfirmModal';
+import { askPaidMode } from './askPaidMode';
+import { billInInr, baseCurrencyOf } from '../utils/fx';
 import { toast } from './Toast';
 import { clientVisits } from '../utils/phoneClients';
+// v1.10.85 (#157, #148) - PDF preview, payment history, items, credit limit.
+import { clientPaymentHistory, latestPaymentDate, statementItems, itemLabel, clientAccount, statementShareMessage, agingShareMessage } from '../utils/clientLedger';
+import PdfPreviewModal from './PdfPreviewModal';
+import ClientPaymentHistory from './ClientPaymentHistory';
 
 // v1.10.31 — UI-C3: Shared helper to resolve the user's accent color as an
 // RGB tuple usable with jsPDF setFillColor / setDrawColor. Falls back to the
@@ -47,6 +53,11 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
   const [modalClient, setModalClient] = useState(null);
   const [editingClientId, setEditingClientId] = useState(null);
   const [profileCountry, setProfileCountry] = useState('');
+  // v1.10.85 (#157) - receipts (for the payment history), the PDF being
+  // previewed, and "Show items" on the statement (#148 item 6, off by default).
+  const [receipts, setReceipts] = useState([]);
+  const [pdfPreview, setPdfPreview] = useState(null);
+  const [showItems, setShowItems] = useState(false);
 
   useEffect(() => {
     getProfile().then(p => { if (p?.country) setProfileCountry(p.country); }).catch(() => {});
@@ -54,9 +65,13 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
 
   const loadData = async () => {
     try {
-      const [c, b] = await Promise.all([getAllClients(), getAllBills()]);
+      const [c, b, prof] = await Promise.all([getAllClients(), getAllBills(), getProfile().catch(() => null)]);
       setClients(c);
-      setBills(b);
+      // v1.10.85 - the business you are working in only (as the Dashboard and
+      // Receipts): the card's Outstanding, the credit-limit mark, the
+      // statements and the payment history all agree. Clients stay shared.
+      setBills((b || []).filter((x) => belongsToProfile(x, prof)));
+      getAllReceipts().then((r) => setReceipts((r || []).filter((x) => belongsToProfile(x, prof)))).catch(() => {});
     } catch {
       toast('Failed to load data', 'error');
     }
@@ -76,7 +91,7 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
     getProfile().then(setProfileForStatement).catch(() => {});
   }, []);
 
-  const generateClientStatement = async (clientName) => {
+  const generateClientStatement = async (clientName, { showItems: withItems = false } = {}) => {
     const clientBills = getClientBills(clientName);
     if (clientBills.length === 0) {
       toast('No invoices for this client', 'warning');
@@ -321,6 +336,20 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
         doc.setTextColor(15, 23, 42); doc.setFont('helvetica', 'normal');
         y += rowH;
 
+        // v1.10.85 (#148 item 6) - "Show items": the invoice's items under it,
+        // name x qty and the line amount, small and grey (no Dr / Cr).
+        if (withItems) {
+          for (const it of statementItems(bill)) {
+            if (y > 268) { doc.addPage(); y = 20; drawHeader(); }
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(100);
+            const label = doc.splitTextToSize(itemLabel(it), col.particEnd - col.dateEnd - 28)[0] || '';
+            doc.text(label, col.dateEnd + 5, y - 1.5);
+            doc.text(fmt(it.amount), col.particEnd, y - 1.5, { align: 'right' });
+            y += 4.5;
+          }
+          doc.setFontSize(8.5); doc.setTextColor(15, 23, 42);
+        }
+
         // Add a follow-on row for the payment if any
         if (paid > 0.01 && !isCreditNote) {
           if (y > 265) { doc.addPage(); y = 20; drawHeader(); }
@@ -385,8 +414,13 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
       doc.text('Please review and confirm within 7 days. This is a computer-generated statement — no signature required.', pageW / 2, 285, { align: 'center' });
       doc.text('Generated by The Entry Makers', pageW / 2, 290, { align: 'center' });
 
-      doc.save(`statement-${clientName.replace(/[^\w]+/g, '-')}-${localToday()}.pdf`);
-      toast('Statement PDF generated', 'success');
+      // v1.10.85 (#157) - shown first; Download, Print, WhatsApp and Email from the preview.
+      setPdfPreview({
+        doc, fileName: `statement-${clientName.replace(/[^\w]+/g, '-')}-${localToday()}.pdf`,
+        title: `Statement: ${clientName}`, subject: `Statement of account - ${clientName}`,
+        message: statementShareMessage(clientName, stats, profileForStatement),
+        phone: savedClient.phone, email: savedClient.email,
+      });
     } catch (e) {
       toast('Could not generate statement PDF', 'error');
       console.error('generateClientStatement', e);
@@ -426,13 +460,16 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
 
   const statsByClient = useMemo(() => {
     const map = new Map();
+    const base = baseCurrencyOf(profileForStatement);
     for (const [key, cBills] of billsByClient) {
+      // v1.10.85 - in the business's currency, each invoice at the rate saved
+      // on it (a USD client's totals were summed in dollars but shown in ₹);
+      // one with no rate is left out, as in Outstanding.
+      const inBase = cBills.map((b) => billInInr(b, base)).filter(Boolean);
       // v1.10.74 - only real sales count; credit notes subtract; quotes,
       // challans, proformas and cancelled bills count for nothing.
-      const total = cBills.reduce((s, b) => s + salesSign(b) * (b.totalAmount || 0), 0);
-      // TDS clients deduct on sales: not paid to us, not owed either.
-      const tds = cBills.reduce((s, b) => s + (salesSign(b) === 1 ? (Number(b.totalAmount) || 0) - amountDue(b) : 0), 0);
-      const paid = cBills.reduce((s, b) => {
+      const total = inBase.reduce((s, b) => s + salesSign(b) * (b.totalAmount || 0), 0);
+      const paid = inBase.reduce((s, b) => {
         if (salesSign(b) !== 1) return s;
         const fromPayments = (b.payments || []).reduce((ps, p) => ps + (Number(p.amount) || 0), 0);
         if (fromPayments > 0) return s + fromPayments;
@@ -440,11 +477,15 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
         if (b.status === 'paid') return s + (b.totalAmount || 0);
         return s;
       }, 0);
+      // v1.10.85 - Outstanding is what they owe less their credit
+      // (overpayments), in the business's currency (another currency at each
+      // invoice's saved rate): the same figure the credit limit is checked on.
+      const account = clientAccount(key, cBills, profileForStatement);
       // count: the documents in these totals (sales and credit notes).
-      map.set(key, { total, paid, unpaid: total - tds - paid, count: cBills.filter((b) => salesSign(b) !== 0).length });
+      map.set(key, { total, paid, unpaid: account.owed - account.credit, count: cBills.filter((b) => salesSign(b) !== 0).length });
     }
     return map;
-  }, [billsByClient]);
+  }, [billsByClient, profileForStatement]);
 
   const EMPTY_BILLS = useMemo(() => [], []);
   const getClientBills = (clientName) =>
@@ -582,8 +623,11 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
 
       // v1.10.74 - was named "Statement-..." like the real Statement PDF.
       const filename = `Aging-${clientName.replace(/[^A-Za-z0-9]+/g, '_').slice(0, 40)}-${localToday()}.pdf`;
-      doc.save(filename);
-      toast(`Aging report for ${clientName} downloaded`, 'success');
+      const saved = clients.find(c => c.name === clientName) || {};
+      setPdfPreview({
+        doc, fileName: filename, title: `Aging report: ${clientName}`, subject: `Outstanding invoices - ${clientName}`,
+        message: agingShareMessage(clientName, buckets, profile), phone: saved.phone, email: saved.email,
+      });
     } catch (err) {
       console.error('generateAgingReport failed:', err);
       toast('Could not make the aging report', 'error');
@@ -639,8 +683,16 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
   };
 
   const changeStatus = async (bill, newStatus) => {
+    // v1.10.85 (#184) - Paid with a balance left asks how it was paid (Cash
+    // reaches the Cash book); cancelled = nothing changes.
+    let paidMode = 'other';
+    const left = amountDue(bill) - (bill.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    if (newStatus === 'paid' && left > 0.005) {
+      paidMode = await askPaidMode();
+      if (!paidMode) { loadData(); return; }
+    }
     const updated = { ...bill, status: newStatus };
-    if (newStatus === 'paid') Object.assign(updated, markPaidPatch(bill));
+    if (newStatus === 'paid') Object.assign(updated, markPaidPatch(bill, 'Marked paid', paidMode));
     // v1.10.77 (#86) - Unpaid takes back the "Marked paid" payment, as on the Dashboard.
     if (newStatus === 'unpaid') Object.assign(updated, markUnpaidPatch(bill));
     await saveBill(updated, { overwrite: true });
@@ -728,6 +780,7 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
 
       {/* Add/Edit Client Modal */}
       <ClientModal show={showForm} onClose={closeForm} onSave={handleModalSave} client={modalClient} isEditing={!!editingClientId} defaultCountry={profileCountry} />
+      {pdfPreview && <PdfPreviewModal {...pdfPreview} onClose={() => setPdfPreview(null)} />}
 
       {/* Search */}
       <div className="glass-panel p-4 mb-6">
@@ -759,6 +812,9 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
             const clientBills = isExpanded ? getClientBills(clientName) : [];
             // v1.10.84 (#129) - how often the customer came, and when last.
             const visits = clientVisits(getClientBills(clientName));
+            // v1.10.85 - what they owe this business, against their credit limit.
+            const limit = Number(savedClient?.creditLimit) || 0;
+            const overLimit = limit > 0 && stats.unpaid > limit + 0.005;
 
             return (
               <div key={clientName} className="glass-panel mb-4" style={{ overflow: 'hidden' }}>
@@ -769,7 +825,15 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
                       {clientName.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="client-card-name">{clientName}</h3>
+                      <h3 className="client-card-name">
+                        {clientName}
+                        {overLimit && (
+                          <span className="type-badge" title={`Owes more than the credit limit of ${formatCurrency(limit)}`}
+                            style={{ marginLeft: 8, color: '#dc2626', background: '#fef2f2', borderColor: '#fecaca', fontSize: '0.68rem', verticalAlign: 'middle' }}>
+                            Over credit limit
+                          </span>
+                        )}
+                      </h3>
                       <p className="client-card-meta">
                         {stats.count} invoice{stats.count !== 1 ? 's' : ''}
                         {savedClient?.state ? ` | ${savedClient.state}` : ''}
@@ -813,8 +877,14 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
                   <div className="client-invoices">
                     {/* Action bar (right-aligned) — Statement + Aging PDFs. */}
                     <div style={{ padding: '0.5rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {/* v1.10.85 (#148 item 6) - items under each invoice, here and in the Statement PDF. */}
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', cursor: 'pointer', marginRight: 'auto' }}
+                        title="List each invoice's items (name x quantity, amount) under it, on screen and in the Statement PDF">
+                        <input type="checkbox" checked={showItems} onChange={(e) => setShowItems(e.target.checked)} />
+                        Show items
+                      </label>
                       <button className="btn btn-secondary" style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
-                        onClick={() => generateClientStatement(clientName)}
+                        onClick={() => generateClientStatement(clientName, { showItems })}
                         title="Account statement: every invoice, credit note, payment, and running balance in one PDF">
                         <Download size={14} /> Statement PDF
                       </button>
@@ -892,7 +962,14 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
                               return (
                                 <tr key={bill.id} className={isOverdue ? 'row-overdue' : ''}>
                                   <td className="text-muted">{new Date(bill.invoiceDate).toLocaleDateString('en-IN')}</td>
-                                  <td><span className="invoice-badge">{bill.invoiceNumber}</span></td>
+                                  <td>
+                                    <span className="invoice-badge">{bill.invoiceNumber}</span>
+                                    {showItems && statementItems(bill).map((it, i) => (
+                                      <div key={i} className="statement-item" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                        {itemLabel(it)} · {formatCurrency(it.amount, bill.currency || bill.data?.invoiceOptions?.currency || 'INR')}
+                                      </div>
+                                    ))}
+                                  </td>
                                   <td><span className="type-badge">{(INVOICE_TYPES[bill.invoiceType || 'tax-invoice'])?.label}</span></td>
                                   <td className="font-bold" style={{ textAlign: 'right' }}>{formatCurrency(bill.totalAmount, bill.currency || bill.data?.invoiceOptions?.currency || 'INR')}</td>
                                   <td>
@@ -907,6 +984,12 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
                                         <option key={key} value={key}>{val.label}</option>
                                       ))}
                                     </select>
+                                    {/* v1.10.85 (#157) - when the last payment came in. */}
+                                    {latestPaymentDate(bill) && (
+                                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                        Last paid {parseLocalDate(latestPaymentDate(bill)).toLocaleDateString('en-IN')}
+                                      </div>
+                                    )}
                                   </td>
                                   <td>
                                     <div className="table-actions">
@@ -936,6 +1019,7 @@ export default function ClientsView({ onEdit, onDuplicate, onNew }) {
                         </table>
                       </div>
                     )}
+                    <ClientPaymentHistory rows={clientPaymentHistory(clientName, clientBills, receipts)} />
                     <div className="client-actions-bar" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', padding: '0.75rem 1.5rem', borderTop: '1px solid var(--border)' }}>
                       {savedClient ? (
                         <>

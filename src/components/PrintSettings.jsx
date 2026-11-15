@@ -728,7 +728,7 @@ export default function PrintSettings() {
           {/* AUTO-PRINT */}
           <SettingGroup title="Auto-print" doc="print-settings#auto-print">
             <ToggleRow label="Auto-print on save" value={settings.autoPrintOnSave} onChange={v => set({ autoPrintOnSave: v })}
-              hint="Send to your default printer immediately after Save & Download PDF. Perfect for POS counters — no manual click needed." />
+              hint="Send to your default printer immediately after Save PDF. Perfect for POS counters — no manual click needed." />
           </SettingGroup>
 
           {/* WATERMARK */}
@@ -923,6 +923,7 @@ export default function PrintSettings() {
               { key: 'composition',     label: 'Composition',       def: 'COMP' },
               { key: 'credit-note',     label: 'Credit Note',       def: 'CN'   },
               { key: 'delivery-challan',label: 'Delivery Challan',  def: 'DC'   },
+              { key: 'sales-order',     label: 'Sales Order',       def: 'SO'   },
             ].map(({ key, label, def }) => (
               <div key={key} style={{ display: 'grid', gridTemplateColumns: '1fr 130px', gap: '0.5rem', alignItems: 'center', marginBottom: 6 }}>
                 <span style={{ fontSize: '0.82rem' }}>{label}</span>

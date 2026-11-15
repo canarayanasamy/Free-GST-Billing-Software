@@ -774,35 +774,54 @@ const BANK_FORMATS = [
     }),
   },
   // Fallback — best-effort column detection.
+  // v1.10.85 (#175) - whole words only: "Cr" used to match "desCRiption", so
+  // the description column was read as the credit. A statement with one
+  // Amount column (signed, or with a Dr / Cr column, or "500.00 Cr") works too.
   {
     name: 'Generic',
     match: () => true,
-    map: (row, hIdx) => ({
-      date: row[hIdx.date],
-      description: row[hIdx.description],
-      debit: parseAmt(row[hIdx.debit]),
-      credit: parseAmt(row[hIdx.credit]),
-      balance: parseAmt(row[hIdx.balance]),
-    }),
-    headerMap: (headers) => ({
-      date: findCol(headers, /Date/i),
-      description: findCol(headers, /Description|Narration|Particulars|Remarks/i),
-      debit: findCol(headers, /Debit|Withdrawal|Dr/i),
-      credit: findCol(headers, /Credit|Deposit|Cr/i),
-      balance: findCol(headers, /Balance/i),
-    }),
+    map: (row, hIdx) => {
+      const base = { date: row[hIdx.date], description: row[hIdx.description], balance: parseAmt(row[hIdx.balance]) };
+      if (hIdx.debit >= 0 || hIdx.credit >= 0) return { ...base, debit: parseAmt(row[hIdx.debit]), credit: parseAmt(row[hIdx.credit]) };
+      const raw = String(row[hIdx.amount] ?? '');
+      const amt = parseAmt(raw.replace(/\s*(cr|dr)\.?\s*$/i, ''));
+      const side = `${row[hIdx.drcr] ?? ''} ${(/(cr|dr)\.?\s*$/i.exec(raw) || [])[1] || ''}`.trim().toLowerCase();
+      const isCredit = /^(cr|c\b|credit|deposit)/.test(side) || (!side && amt > 0);
+      return { ...base, debit: isCredit ? 0 : Math.abs(amt), credit: isCredit ? Math.abs(amt) : 0 };
+    },
+    headerMap: (headers) => {
+      const date = findCol(headers, /Date/i);
+      const description = findCol(headers, /Description|Narration|Particulars|Remarks|Details/i);
+      const balance = findCol(headers, /Balance/i);
+      const drcr = findCol(headers, /^\s*(dr\s*\/\s*cr|cr\s*\/\s*dr|debit\s*\/\s*credit|(transaction |txn )?type)\s*$/i);
+      const skip = [date, description, balance, drcr];
+      const col = (pattern) => headers.findIndex((h, i) => !skip.includes(i) && pattern.test(String(h || '').trim()));
+      const debit = col(/\b(debit|withdrawals?|dr)\b/i);
+      const credit = col(/\b(credit|deposits?|cr)\b/i);
+      const amount = col(/\bamount\b/i);
+      return { date, description, balance, drcr, debit, credit, amount };
+    },
   },
 ];
 
 /**
  * Parse a bank-statement CSV string. Returns:
- *   { bankName, transactions: [{ date, description, debit, credit, balance, category }] }
+ *   { bankName, transactions: [{ date, description, debit, credit, balance, reference, category }] }
  *
  * The `category` field is auto-populated by `autoCategorize`. Users override
  * in the UI review grid.
  */
-export function parseBankStatement(csvText) {
-  const rows = parseCSV(csvText);
+export function parseBankStatement(csvText, bankName = '') {
+  return parseBankRows(parseCSV(csvText), bankName);
+}
+
+// v1.10.85 (#175) - the bank names a person can choose instead of auto-detect
+// (Bank matching), and the parser for rows already split into cells (an
+// Excel .xlsx statement read by utils/xlsxRead.js).
+export const BANK_NAMES = BANK_FORMATS.map(f => f.name).filter(n => n !== 'Generic');
+
+export function parseBankRows(input, bankName = '') {
+  const rows = (input || []).map(r => (r || []).map(c => (c === null || c === undefined ? '' : String(c))));
   if (rows.length < 2) throw new Error('CSV must have a header row + at least one transaction');
   // Find the actual header row — some banks prepend account-info lines
   let headerRowIdx = 0;
@@ -816,15 +835,17 @@ export function parseBankStatement(csvText) {
   const headers = rows[headerRowIdx];
   const dataRows = rows.slice(headerRowIdx + 1);
 
-  const format = BANK_FORMATS.find(f => f.match(headers));
+  const format = BANK_FORMATS.find(f => bankName && f.name === bankName) || BANK_FORMATS.find(f => f.match(headers));
   const hIdx = format.headerMap(headers);
+  // v1.10.85 (#175) - the cheque / reference / UTR number, when the bank gives one.
+  const refIdx = findCol(headers, /Ref|Chq|Cheque|Instrument|UTR/i);
 
   const transactions = dataRows
     .filter(r => r.length >= 3 && r.some(c => c && String(c).trim())) // skip blank / footer rows
     .map(r => {
       const parsed = format.map(r, hIdx);
       if (!parsed.date) return null;
-      return { ...parsed, category: autoCategorize(parsed.description) };
+      return { ...parsed, reference: refIdx >= 0 ? String(r[refIdx] || '').trim() : '', category: autoCategorize(parsed.description) };
     })
     .filter(Boolean);
 

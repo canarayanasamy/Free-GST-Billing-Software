@@ -16,7 +16,7 @@ export default [
   <li><a href="#invoice-types"><b>Invoice Type</b></a>: the kind of document, and whether it is for goods or services. The ${ui('Customize')} panel opens inside this card.</li>
   <li><a href="#billed-to"><b>Billed To</b></a>: the client's name, address, state and GSTIN.</li>
   <li><a href="#details"><b>Invoice Details</b></a>: number, dates, place of supply, the <a href="#ship-to">Ship to</a> address and the optional <a href="#order-details">order, dispatch and reference details</a>.</li>
-  <li><a href="#items"><b>Line Items</b></a>: what you are selling, with the <a href="#discounts">whole-bill discount</a> under them.</li>
+  <li><a href="#items"><b>Line Items</b></a>: what you are selling, with the <a href="#discounts">whole-bill discount</a> and <a href="#received-now">Received now</a> under them.</li>
   <li><a href="#terms-notes"><b>Terms &amp; Conditions</b></a>: terms, notes for the client and a private note for you.</li>
   <li><a href="#extra-pages"><b>Additional Pages / Sections</b></a>: extra pages printed after the invoice.</li>
 </ol>
@@ -28,22 +28,22 @@ export default [
 <section id="toolbar">
 <h2>The toolbar</h2>
 <p>The toolbar stays at the top of the screen as you scroll, so Save, Print and the rest are always in reach on a long invoice.</p>
-<figure><img src="${img('toolbar.png')}" alt="The invoice toolbar: Save, Save and Download, Print, WhatsApp, E-Way Bill, Customize, Hide Preview"></figure>
+<figure><img src="${img('toolbar.png')}" alt="The invoice toolbar: Save, Save PDF, Print, WhatsApp, E-Way Bill, E-invoice, Customize, Hide Preview"></figure>
 <div class="table-wrap"><table>
   <tr><th>Button</th><th>What it does</th></tr>
   <tr><td>${ui('←')} ${ui('Back')}</td><td>Leaves the invoice. If you have changed something that is not saved, you are asked first (see <a href="#leaving">Leaving with unsaved changes</a>).</td></tr>
   <tr><td>${ui('?')}</td><td>Opens this guide.</td></tr>
   <tr><td>Save status</td><td>A small coloured badge that tells you whether the invoice is saved. See <a href="#autosave">Saving as you go</a>.</td></tr>
   <tr><td>${ui('Save')}</td><td>Saves the invoice without making a PDF. <kbd>Ctrl</kbd> + <kbd>S</kbd> does the same.</td></tr>
-  <tr><td>${ui('Save &amp; Download')}</td><td>Saves the invoice and downloads the PDF. See <a href="#save-download">Save &amp; Download</a>.</td></tr>
+  <tr><td>${ui('Save PDF')}</td><td>Saves the invoice and downloads the PDF. See <a href="#save-download">Save PDF</a>.</td></tr>
   <tr><td>${ui('Print')}</td><td>Saves the invoice, then prints it. See <a href="#print">Printing</a>.</td></tr>
   <tr><td>${ui('WhatsApp')}</td><td>Opens WhatsApp with the invoice details typed in. See <a href="#whatsapp">Sending on WhatsApp</a>.</td></tr>
   <tr><td>${ui('E-Way Bill')}</td><td>Only on tax invoices and delivery challans, and only while <b>E-way bill</b> is on in <a href="settings.html#features">Settings, Features</a>. Downloads the e-way bill file. See <a href="#eway-bill">E-way bill</a>.</td></tr>
   <tr><td>${ui('E-invoice')}</td><td>Only when <b>E-invoicing (IRN)</b> is on in Settings, Features, and only on tax invoices and credit notes. Downloads the e-invoice file and takes back the IRN. A ✓ after the name means this invoice already has an IRN. See <a href="gst-returns.html#e-invoice">E-invoicing</a>.</td></tr>
   <tr><td>${ui('Customize')}</td><td>Opens the panel that controls what prints, the paper size, currency and more. While it is open the button reads ${ui('Hide Options')}. See <a href="invoice-options.html">Customize: what prints and how</a>.</td></tr>
-  <tr><td>${ui('Hide Preview')}</td><td>Hides the preview so the form uses the whole width, handy for long invoices. ${ui('Show Preview')} brings it back. The app remembers your choice in this browser. Save &amp; Download and Print still work while it is hidden.</td></tr>
+  <tr><td>${ui('Hide Preview')}</td><td>Hides the preview so the form uses the whole width, handy for long invoices. ${ui('Show Preview')} brings it back. The app remembers your choice in this browser. Save PDF and Print still work while it is hidden.</td></tr>
 </table></div>
-<p>While a save, download or print is running, the buttons are greyed out and Save &amp; Download reads <b>Generating...</b>. Wait for it to finish.</p>
+<p>While a save, download or print is running, the buttons are greyed out and Save PDF reads <b>Generating...</b>. Wait for it to finish.</p>
 </section>
 
 <section id="invoice-types">
@@ -53,6 +53,7 @@ export default [
   <tr><th>Chip</th><th>Prints as</th><th>Numbered</th><th>Use it for</th><th>GST</th><th>Counts as a sale?</th></tr>
   <tr><td>Tax Invoice</td><td>TAX INVOICE</td><td>INV…</td><td>A normal sale by a GST-registered business</td><td>Yes</td><td>Yes</td></tr>
   <tr><td>Quotation</td><td>QUOTATION</td><td>QUO…</td><td>A priced offer for work or supply. Convert it to a tax invoice when the client accepts.</td><td>Shown</td><td>No</td></tr>
+  <tr><td>Sales Order</td><td>SALES ORDER</td><td>SO…</td><td>The customer's confirmed order, sent in parts with delivery challans and then invoiced. Only when <a href="#sales-orders">Sales orders</a> are turned on.</td><td>Shown</td><td>No</td></tr>
   <tr><td>Proforma / Estimate</td><td>PROFORMA INVOICE</td><td>EST…</td><td>A quote before the sale. Prints "This is not a tax invoice" and a faint ESTIMATE watermark.</td><td>Shown</td><td>No</td></tr>
   <tr><td>Bill of Supply (No GST)</td><td>BILL OF SUPPLY</td><td>BOS…</td><td>Exempt goods or services, where no GST is charged</td><td>No</td><td>Yes</td></tr>
   <tr><td>Composition (Bill of Supply)</td><td>BILL OF SUPPLY</td><td>COMP…</td><td>Sales under the composition scheme (section 10). The declaration required by Rule 46A prints automatically.</td><td>No</td><td>Yes</td></tr>
@@ -77,7 +78,7 @@ export default [
 <p>Under the type chips, <b>This invoice is for:</b> sets which units the Unit list offers and which unit a new row starts with. It does not change the tax.</p>
 <div class="table-wrap"><table>
   <tr><th>Chip</th><th>Units offered</th><th>Good for</th></tr>
-  <tr><td>📦 Goods</td><td>Pcs, Nos, Kg, g, Tonne, Ltr, ml, Mtr, cm, Ft, In, Sq.ft, Sq.m, Box, Dozen, Pair, Set, Bag, Roll, Bottle and the like. The default.</td><td>Shops, traders, manufacturers</td></tr>
+  <tr><td>📦 Goods</td><td>Pcs, Nos, Kg, g, Tonne, Ltr, ml, Mtr, cm, Ft, In, Rft, Sq.ft, Sq.m, Box, Dozen, Pair, Set, Bag, Roll, Bottle and the like. The default.</td><td>Shops, traders, manufacturers</td></tr>
   <tr><td>⏱ Services</td><td>Hrs, Day, Week, Month, Year, Visit, Session, Project, Word, Page, plus Nos, Sq.ft and Sq.m. A reminder appears to use a <b>SAC code</b> (the services version of HSN) in the HSN/SAC box. Terms print in the <b>Formatted</b> layout unless you choose otherwise.</td><td>Freelancers, consultants, repair and service businesses</td></tr>
   <tr><td>🔀 Mixed</td><td>Every unit, unfiltered.</td><td>Selling goods and doing the work, such as supply and installation</td></tr>
 </table></div>
@@ -137,6 +138,11 @@ export default [
   <tr><td>⚠ This GSTIN fails its own checksum — check for a typo.</td><td>The check character does not add up, so a character is almost certainly mistyped (0 for O, 1 for I and so on).</td><td>Compare it with the client's GST certificate or their last invoice.</td></tr>
 </table></div>
 <p>These are warnings only. They never stop you saving. The message clears as soon as you type in the box again.</p>
+</section>
+
+<section id="credit-limit">
+<h3>Credit limit warning</h3>
+<p>When the client has a <a href="clients.html#credit-limit">credit limit</a>, and what they already owe your business plus this invoice goes over it, a yellow warning shows under the line items: <b>Over the credit limit by ₹…</b>, with what they owe, the total with this invoice, and their limit. It is only a warning: you can still save the invoice. It shows for tax invoices, bills of supply and composition bills, not for quotations, challans or credit notes. When you edit a saved invoice, that invoice is counted once, as this invoice.</p>
 </section>
 
 <section id="client-credit">
@@ -241,7 +247,7 @@ export default [
 <p>One row for each thing you are selling. The amount for each row and the totals are worked out for you and shown in the preview.</p>
 <div class="table-wrap"><table>
   <tr><th>Field</th><th>What to know</th></tr>
-  <tr><td>Item</td><td>The item name. Typing searches your <a href="products.html">products</a> by name or HSN and shows up to five, with their HSN and price. Pick one with the mouse, or with <kbd>↓</kbd> <kbd>↑</kbd> and <kbd>Enter</kbd>. Picking fills in the HSN, selling price, unit and GST rate, and links the row to the product so its stock is counted. You can also type any name that is not a product.</td></tr>
+  <tr><td>Item</td><td>The item name. Typing searches your <a href="products.html">products</a> by name or HSN and shows up to five, with their HSN and price. Pick one with the mouse, or with <kbd>↓</kbd> <kbd>↑</kbd> and <kbd>Enter</kbd>. Picking fills in the HSN, selling price, unit and GST rate, and links the row to the product so its stock is counted. With <a href="settings.html#price-levels">Price levels</a> on, a client on a level gets the product's price for that level instead, when it has one. You can also type any name that is not a product.</td></tr>
   <tr><td>HSN/SAC</td><td>The goods (HSN) or services (SAC) code. GST returns need it. For common codes the app knows the usual GST rate since 22 September 2025: from the fourth digit it shows the rate and the item type in green under the box, and if the row's GST is still 18% or 0% it is changed to match. Where the rate depends on the price, size or packing (clothes and shoes up to or above ₹2,500, cars and bikes by engine size, loose or packed food) it shows every possible rate and leaves your GST % alone. Always check it: see <a href="gst-basics.html#which-rate">GST basics: what rate do I charge?</a> Finding your code: see <a href="gst-basics.html#hsn-search">GST basics: HSN and SAC</a>.</td></tr>
   <tr><td>Qty</td><td>1 to start. Clicking the box selects the number, so typing replaces it. Decimals are fine, such as 2.5 kg. With the unit <b>NA</b> there is no quantity: the box shows "-" and the amount is the rate (for a service such as a setup fee). GSTR-1 reports such a line with unit NA and quantity 0, as the portal expects.</td></tr>
   <tr><td>Unit</td><td>From the list for Goods, Services or Mixed. A new row starts with the unit of the row above. ${ui('＋ Add custom…')} adds your own unit (up to 20 characters), marked ★ and kept in this browser for later invoices; ${ui('− Remove "unit"')} takes one away again. Invoices already made keep the unit they used. <b>NA</b> is for a service with no quantity (see Qty). With <a href="#size-billing">Size billing</a> on, <b>Sq.ft</b> makes the row a size row.</td></tr>
@@ -300,10 +306,35 @@ export default [
   <tr><td>W/Tax</td><td>₹ off the total including tax, so the client's total drops by exactly that much.</td><td>₹50 off ₹1,180: taxable about ₹957.63</td></tr>
 </table></div>
 <p>A % discount is a percentage of the row (at most 100%). A discount can never be more than the row itself. This is the GST-correct way to give a discount, because it comes off before tax and lowers the GST too.</p>
-<h3>On the whole bill (after tax)</h3>
-<p>Under the items, <b>Discount on total (whole bill)</b> takes an amount (fixed) or a <b>% of total</b>. It is taken off <em>after</em> tax, as a cash discount: the GST stays the same and the GST returns are not changed. It prints as its own line above the total. Leave it at 0 for none.</p>
+<h3>On the whole bill: after GST or before GST</h3>
+<p>Under the items, <b>Discount on total (whole bill)</b> takes an amount (fixed) or a percent. A third list says when it comes off:</p>
+<div class="table-wrap"><table>
+  <tr><th>Choice</th><th>Means</th><th>Example: ₹10,000 of goods at 18% GST, discount ₹1,000</th></tr>
+  <tr><td>After GST (cash discount)</td><td>The default. Taken off the total after tax: the GST stays the same and the GST returns are not changed. Prints as <b>Discount on total</b> above the total. A percent is a % of the total with GST.</td><td>₹10,000 + ₹1,800 GST − ₹1,000 = ₹10,800</td></tr>
+  <tr><td>Before GST (trade discount)</td><td>Shared over the lines in proportion to their value (after any line discount), and GST is worked out on what is left. The taxable value, CGST/SGST or IGST, cess, GSTR-1 and the HSN summary all use the reduced value. Each line's part shows in its <b>Disc.</b> column, and the total shows <b>Trade discount (before GST)</b>. A percent is a % of the value before GST.</td><td>₹9,000 + ₹1,620 GST = ₹10,620</td></tr>
+</table></div>
+<p>The parts are worked out to the paisa and always add up to the discount exactly. On a bill whose prices include tax, a Before GST discount comes off the prices as typed (GST included), and the GST is then worked out again on what is left. The choice is remembered for your next invoice. Invoices saved before keep their own choice (After GST), so their totals never change. A Delivery charges line shares in a Before GST discount like the goods. Before GST applies only while GST is charged: on a bill of supply the discount comes off the total. Leave the amount at 0 for no discount.</p>
 <div class="note tip"><strong>Something wrong?</strong>
-<p><b>The GST did not go down after a discount.</b> You used the whole-bill discount, which is after tax. Use a line discount instead.</p></div>
+<p><b>The GST did not go down after a discount.</b> The whole-bill discount is set to After GST. Choose <b>Before GST (trade discount)</b> in the list beside it, or use a line discount.</p></div>
+</section>
+
+<section id="received-now">
+<h2>Payment received with the invoice (Received now)</h2>
+<p>For a cash sale, or any sale paid on the spot, record the payment while you make the invoice. Under the items, on a Tax Invoice, Bill of Supply or Composition Bill:</p>
+<ol>
+  <li>Type the amount in <b>Received now</b>, or click ${ui('Full')} to fill in the balance of the invoice (the total, less any TDS the client deducts).</li>
+  <li>Choose how it was paid: Cash, UPI, Bank transfer, Cheque, Card or Other. The last choice is offered first next time.</li>
+  <li>Save the invoice.</li>
+</ol>
+<p>Saving records the payment on the invoice exactly as ${ui('₹')} on the Dashboard does: dated with the invoice date, with its receipt in <a href="receipts.html">Receipts</a>. The invoice becomes <b>Paid</b>, or <b>Partly paid</b> for part of it. A <b>Cash</b> payment also goes into the <a href="cash-book.html#from-elsewhere">Cash book</a>, once.</p>
+<p>Saving again, by hand or by auto-save, never adds a second payment: the same one is changed to the new amount or way paid. Clearing the amount removes the payment and its receipt. More than the balance is kept as the client's credit.</p>
+<p>An invoice that already has payments when you open it shows <b>Paid so far</b> instead; record or change its payments with ${ui('₹')} on the Dashboard. If the books are closed for the invoice's date, nothing is saved: neither the invoice nor the payment.</p>
+</section>
+
+<section id="bill-profit">
+<h3>Profit on this bill</h3>
+<p>Under the totals, a sales invoice shows <b>Profit on this bill</b>: the value before GST less what the goods cost you (each product's <b>Purchase price</b> on the Products page, times the quantity), with the margin as a percentage. It is shown on the screen only and never printed. Click ${ui('Hide')} if the customer can see your screen; the app remembers it, and ${ui('Show profit')} brings it back.</p>
+<p>It shows once at least one item on the bill has a purchase price. Items with no purchase price count as costing nothing, and the line says how many there are, so fill in their purchase price for a true figure. Services cost nothing here. It is worked out in your own currency only.</p>
 </section>
 
 <section id="gst">
@@ -343,44 +374,51 @@ export default [
   <li><strong>TDS</strong>, tax <em>your client deducts</em> when paying you, is for information: the total does not change. See <a href="#tds">TDS</a>.</li>
 </ul>
 <p>Each has a section list and a <b>Rate %</b> box beside it. Picking a section fills in its usual rate; you can type another rate.</p>
-<p>TDS is worked out on the value before GST, as CBDT Circular 23/2017 says when GST is shown separately. TCS under CGST section 52 is worked out on the net taxable value, and TCS under 206C(1) on the amount including GST. Who deducts what, and how to check it reached your PAN: see <a href="gst-basics.html#income-tax-tds">GST basics: TDS and TCS</a>.</p>
+<p>TDS is worked out on the value before GST, as CBDT Circular 23/2017 says when GST is shown separately. TCS under CGST section 52 is worked out on the net taxable value, and income-tax TCS (section 394 from 1 April 2026, 206C before) on the amount including GST. Who deducts what, and how to check it reached your PAN: see <a href="gst-basics.html#income-tax-tds">GST basics: TDS and TCS</a>.</p>
 <ul>
-  <li><strong>194Q</strong> (and 206C(1H) on invoices before April 2025) only applies above ₹50 lakh a year with that client. The app adds up what you have already billed the client this financial year, and charges only the part above ₹50 lakh.</li>
-  <li><strong>Every other section</strong>, such as 194C, 194J or CGST section 52, applies from the first rupee. Tick it only when the rules say it applies to this client.</li>
+  <li><strong>Purchase of goods</strong>: 393(1) Table Sl. 8(ii) from 1 April 2026 (194Q before; and 206C(1H) on invoices before April 2025) only applies above ₹50 lakh a year with that client. The app adds up what you have already billed the client this financial year, and charges only the part above ₹50 lakh.</li>
+  <li><strong>Every other section</strong>, such as contract work, professional fees or CGST section 52, applies from the first rupee. Tick it only when the rules say it applies to this client.</li>
 </ul>
 <p>Invoices with TDS or TCS are listed in <a href="reports.html#tds-tcs">Reports, TDS &amp; TCS</a>, where you also tick off each TDS certificate, and summed in <a href="gst-returns.html#tds-tcs">the GST Returns TDS / TCS tab</a>. A client deducted TDS you did not put on the invoice? Record it with the payment: see <a href="dashboard.html#payment-tds">TDS when recording a payment</a>. Have your CA confirm which sections and rates apply to you.</p>
 </section>
 
 <section id="tcs">
 <h3>TCS: tax collected at source</h3>
-<p>Tick <b>TCS — Tax Collected at Source</b> (marked <i>Adds to invoice total</i>), then pick the section:</p>
+<p>Tick <b>TCS — Tax Collected at Source</b> (marked <i>Adds to invoice total</i>), then pick the section. The list follows the invoice date: from <b>1 April 2026</b> the sections of the <b>Income-tax Act, 2025</b> (section 394, with its Table serial number, as the TCS return needs), with the rates of the Finance Act, 2026:</p>
 <div class="table-wrap"><table>
-  <tr><th>Section</th><th>Starting rate</th><th>Worked out on</th></tr>
-  <tr><td>CGST 52 — E-commerce operator</td><td>0.5% (since 10 July 2024; it was 1%. Invoices made earlier keep their rate)</td><td>The taxable value, without GST</td></tr>
-  <tr><td>206C(1) — Tendu leaves / scrap / minerals (varies)</td><td>1% (type the right rate for your goods)</td><td>The amount including GST</td></tr>
-  <tr><td>Custom rate</td><td>Type it</td><td>The amount including GST</td></tr>
+  <tr><th>Section (from 1 April 2026)</th><th>Was</th><th>Starting rate</th></tr>
+  <tr><td>CGST 52 — E-commerce operator (GST, not income tax)</td><td>the same</td><td>0.5%, on the taxable value without GST</td></tr>
+  <tr><td>394(1) Table Sl. 1 — Alcoholic liquor</td><td>206C(1), 1%</td><td>2%</td></tr>
+  <tr><td>394(1) Table Sl. 2 — Tendu leaves</td><td>206C(1), 5%</td><td>2%</td></tr>
+  <tr><td>394(1) Table Sl. 3 — Timber, other forest produce</td><td>206C(1)</td><td>2%</td></tr>
+  <tr><td>394(1) Table Sl. 4 — Scrap</td><td>206C(1), 1%</td><td>2%</td></tr>
+  <tr><td>394(1) Table Sl. 5 — Coal, lignite, iron ore</td><td>206C(1), 1%</td><td>2%</td></tr>
+  <tr><td>394(1) Table Sl. 6 — Motor vehicle sold for more than ₹10 lakh</td><td>206C(1F)</td><td>1%</td></tr>
+  <tr><td>394(1) Table Sl. 9 — Licence or lease of a parking lot, toll plaza, mine or quarry</td><td>206C(1C)</td><td>2%</td></tr>
+  <tr><td>Custom rate</td><td></td><td>Type it</td></tr>
 </table></div>
-<p>The TCS prints as its own line and is added to the total. Section 206C(1H), TCS on sale of goods, was removed from 1 April 2025, so new invoices cannot choose it; invoices already made with it keep it, and it shows greyed out in the list.</p>
+<p>Income-tax TCS is worked out on the amount including GST. An invoice dated before 1 April 2026 shows the 1961 Act's list (CGST 52, 206C(1) and Custom). TCS on sale of goods (206C(1H)) was removed from 1 April 2025 and has no place in the 2025 Act; invoices already made with it keep it, greyed out in the list. The TCS prints as its own line, for example <b>TCS (394(1) Sl. 4 @ 2%)</b>, and is added to the total.</p>
 </section>
 
 <section id="tds">
 <h3>TDS: tax deducted at source</h3>
-<p>Tick <b>TDS — Tax Deducted at Source</b> (marked <i>Buyer deducts; informational</i>), then pick the section your client deducts under:</p>
+<p>Tick <b>TDS — Tax Deducted at Source</b> (marked <i>Buyer deducts; informational</i>), then pick the section your client deducts under. From <b>1 April 2026</b> the list has the sections of the <b>Income-tax Act, 2025</b>: section 393 with its Table serial number, which the client must quote in its TDS return (Form 140, the old 26Q). Your TDS certificate from the client is now <b>Form 131</b> (the old 16A).</p>
 <div class="table-wrap"><table>
-  <tr><th>Section</th><th>Starting rate</th></tr>
-  <tr><td>194Q — Purchase of goods (buyer turnover &gt; ₹10cr)</td><td>0.1%, only above ₹50 lakh a year</td></tr>
-  <tr><td>194C — Contractor / sub-contractor</td><td>1%</td></tr>
-  <tr><td>194C — Contractor (company)</td><td>2%</td></tr>
-  <tr><td>194J — Professional / technical services</td><td>10%</td></tr>
-  <tr><td>194J — Technical services (lower rate)</td><td>2%</td></tr>
-  <tr><td>194I — Rent (land / building)</td><td>10%</td></tr>
-  <tr><td>194I — Rent (plant / machinery)</td><td>2%</td></tr>
-  <tr><td>194H — Commission / brokerage</td><td>5%</td></tr>
-  <tr><td>194O — E-commerce participant</td><td>1%</td></tr>
-  <tr><td>195 — Payments to non-residents (varies)</td><td>Type it</td></tr>
-  <tr><td>Custom section / rate</td><td>Type it</td></tr>
+  <tr><th>Section (from 1 April 2026)</th><th>Was</th><th>Starting rate</th></tr>
+  <tr><td>393(1) Table Sl. 8(ii) — Purchase of goods (buyer turnover &gt; ₹10 cr)</td><td>194Q</td><td>0.1%, only on the amount above ₹50 lakh a year</td></tr>
+  <tr><td>393(1) Table Sl. 6(i) — Contractor, incl. manpower supply (individual / HUF)</td><td>194C</td><td>1%</td></tr>
+  <tr><td>393(1) Table Sl. 6(i) — Contractor, incl. manpower supply (others)</td><td>194C</td><td>2%</td></tr>
+  <tr><td>393(1) Table Sl. 6(iii) — Professional fees, director fees, royalty</td><td>194J</td><td>10%</td></tr>
+  <tr><td>393(1) Table Sl. 6(iii) — Technical services, film royalty, call centre</td><td>194J</td><td>2%</td></tr>
+  <tr><td>393(1) Table Sl. 2(ii) — Rent: land, building, furniture</td><td>194-I</td><td>10%, when rent is above ₹50,000 a month</td></tr>
+  <tr><td>393(1) Table Sl. 2(ii) — Rent: plant, machinery, equipment</td><td>194-I</td><td>2%, when rent is above ₹50,000 a month</td></tr>
+  <tr><td>393(1) Table Sl. 1(ii) — Commission / brokerage</td><td>194H</td><td>2%, above ₹20,000 a year</td></tr>
+  <tr><td>393(1) Table Sl. 8(v) — E-commerce participant (the operator deducts)</td><td>194O</td><td>0.1%</td></tr>
+  <tr><td>393(2) Table Sl. 17 — Payments to non-residents</td><td>195</td><td>Type it (rates in force, or the tax treaty rate)</td></tr>
+  <tr><td>Custom section / rate</td><td></td><td>Type it</td></tr>
 </table></div>
-<p>TDS is worked out on the value <em>without</em> GST, as the CBDT circulars require when the invoice shows GST separately. The invoice shows <b>Less: TDS</b> and the <b>Net Receivable</b>, the amount you should actually receive. The invoice counts as paid once payments cover the total less the TDS.</p>
+<p>An invoice dated before 1 April 2026 shows the 1961 Act's list (194Q, 194C, 194J, 194I, 194H, 194O, 195). A <b>new</b> invoice, or a copy of an old one, dated from 1 April 2026 moves a 1961 section to its new place by itself (194J becomes 393(1) Sl. 6(iii)). An invoice you saved keeps the section it was made with. The invoice prints, for example, <b>Less: TDS (393(1) Sl. 6(iii) @ 10%)</b>.</p>
+<p>The thresholds above are when the client must deduct (for contract work, ₹30,000 for one payment or ₹1 lakh in the year; for professional fees, ₹50,000 in the year). Tick TDS only when it applies to this client; only purchase of goods is worked out against its ₹50 lakh by the app. TDS is worked out on the value <em>without</em> GST, as the CBDT circulars require when the invoice shows GST separately. The invoice shows <b>Less: TDS</b> and the <b>Net Receivable</b>, the amount you should actually receive. The invoice counts as paid once payments cover the total less the TDS. Have your CA confirm which section and rate apply to you.</p>
 </section>
 
 <section id="currency">
@@ -479,13 +517,13 @@ export default [
 
 <section id="before-saving">
 <h2>What must be filled in</h2>
-<p>A new invoice needs a <b>client name</b> and <b>at least one item</b> with a name, a quantity and a rate. Otherwise ${ui('Save')}, ${ui('Save &amp; Download')} and ${ui('Print')} stop with <i>Add a client name before saving.</i> or <i>Add at least one item with a quantity and rate before saving.</i> Click the amber <b>Draft — click to complete</b> badge in the toolbar to jump to what is missing.</p>
+<p>A new invoice needs a <b>client name</b> and <b>at least one item</b> with a name, a quantity and a rate. Otherwise ${ui('Save')}, ${ui('Save PDF')} and ${ui('Print')} stop with <i>Add a client name before saving.</i> or <i>Add at least one item with a quantity and rate before saving.</i> Click the amber <b>Draft — click to complete</b> badge in the toolbar to jump to what is missing.</p>
 <p>This is so a blank invoice never takes an invoice number: GST expects numbers without gaps.</p>
 </section>
 
 <section id="save-download">
-<h2>Save &amp; Download</h2>
-<p>${ui('Save &amp; Download')} (or <kbd>Ctrl</kbd> + <kbd>P</kbd>) does all of this in one go:</p>
+<h2>Save PDF</h2>
+<p>${ui('Save PDF')} (or <kbd>Ctrl</kbd> + <kbd>P</kbd>) does all of this in one go:</p>
 <ol>
   <li>Saves the invoice, giving a new invoice its number, and counts it as printed once more.</li>
   <li>Downloads the PDF, showing that saved number, named after the type and number, such as <code>INV_INV-2026-27-0001.pdf</code>.</li>
@@ -506,7 +544,7 @@ export default [
   <li><strong>On A4, A5 and other sheet sizes</strong>, ${ui('Print')} saves the invoice, makes a sharp print copy and opens your browser's print window, which has its own page preview.</li>
   <li><strong>On a thermal paper size</strong>, it first shows a <b>Print preview</b> of the receipt, with ${ui('Print')}, ${ui('Download PDF')} and ${ui('Cancel')}. See <a href="thermal-printing.html#print-preview">Thermal receipt printing</a>.</li>
 </ul>
-<p>Printing saves the invoice first, like ${ui('Save &amp; Download')}, so what you hand the client is always in your records with the same number.</p>
+<p>Printing saves the invoice first, like ${ui('Save PDF')}, so what you hand the client is always in your records with the same number.</p>
 <div class="note tip"><strong>Something wrong?</strong>
 <p><b>Nothing happens, or "Print failed — try Download PDF instead".</b> Allow pop-ups for the app, or download the PDF and print that. See <a href="troubleshooting.html#print-blocked">Print does nothing</a>.</p></div>
 </section>
@@ -524,12 +562,21 @@ export default [
   <tr><td>Type amount</td><td>Tick it to type the amount yourself; the box beside it becomes <b>Amount</b> and nothing is worked out. The size and square feet still print.</td></tr>
 </table></div>
 <p>The invoice then prints <b>Size</b> (25 x 30, as measured) and <b>SQFT</b> columns, and <b>Qty</b> shows the pieces. Tally style and Boxed grid print the size under the item name. Items sold by the piece (hole cutting, silicon) stay ordinary rows. GSTR-1 counts a size row in Sq.ft (unit SQF). Pick any other unit to turn a size row back into an ordinary one.</p>
+<h3 id="rft">Polish and channel: Rft rows</h3>
+<p>For work charged on the glass already on the bill, pick the unit <b>Rft</b> on a row. Its quantity is worked out from the Sq.ft rows, and it follows them when they change:</p>
+<table>
+  <tr><th>Box</th><th>What it does</th></tr>
+  <tr><td>Sq.ft of glass</td><td>The square feet of the glass rows. Two rows of 12.50 and 3 sq.ft = 15.50.</td></tr>
+  <tr><td>Edges (running ft)</td><td>The running feet round each piece: 2 × (rounded length + rounded width) ÷ 12 × pieces. 30 × 30, 2 pieces = 20 rft.</td></tr>
+  <tr><td>All glass lines / Lines I tick / Type it</td><td>Count every glass row, only the rows you tick, or type the quantity yourself.</td></tr>
+</table>
+<p>The amount is the quantity × the rate, and the invoice prints it as <b>15.5 sqft</b> or <b>20 rft</b> in the Qty column. A glass row with only its sq.ft typed (no length and width) has no edges, so it adds nothing to <b>Edges</b>. GSTR-1 counts an Rft row under the unit OTH (others).</p>
 </section>
 
 <section id="whatsapp">
 <h2>Sending on WhatsApp</h2>
 <p>${ui('WhatsApp')} opens WhatsApp with this message typed in: your business name, the client, the invoice number and date (and due date), the total, what is paid and still due, the status, and your UPI ID while money is due on a rupee invoice. The Invoices list and the Clients page send the same message. If the client is saved with a phone number, the chat opens with them; otherwise you choose the contact. It does not save the invoice.</p>
-<p>From the invoice screen the PDF is not attached. Download it with ${ui('Save &amp; Download')} and drag it into the chat. The WhatsApp button on the <a href="dashboard.html#row-actions">Dashboard</a> can attach the PDF on phones.</p>
+<p>From the invoice screen the PDF is not attached. Download it with ${ui('Save PDF')} and drag it into the chat. The WhatsApp button on the <a href="dashboard.html#row-actions">Dashboard</a> can attach the PDF on phones.</p>
 </section>
 
 <section id="eway-bill">
@@ -550,7 +597,7 @@ export default [
 <h2>Saving as you go</h2>
 <ul>
   <li>What you type is kept while the browser tab stays open. If you leave the screen by mistake and come back, the invoice is still there.</li>
-  <li>A <strong>new</strong> invoice (or a duplicate or conversion) is not stored in your records until you first click ${ui('Save')}, ${ui('Save &amp; Download')} or ${ui('Print')}. It takes its number only then.</li>
+  <li>A <strong>new</strong> invoice (or a duplicate or conversion) is not stored in your records until you first click ${ui('Save')}, ${ui('Save PDF')} or ${ui('Print')}. It takes its number only then.</li>
   <li>After that, changes are saved automatically about two seconds after you stop typing.</li>
 </ul>
 <p>The badge beside ${ui('Back')} tells you where you are:</p>
@@ -614,6 +661,28 @@ export default [
 <section id="proforma-to-invoice">
 <h2>Turning a quote into an invoice</h2>
 <p>When a client accepts a Quotation or a Proforma / Estimate, click ${ui('Convert to Tax Invoice')} on it in the Dashboard. A new tax invoice opens with the same client and items, and gets its own number when you save it. The same works for a delivery challan. Once saved, the original shows <b>Converted</b> and its Convert button goes away, so it cannot be turned into a second invoice by mistake.</p>
+</section>
+
+<section id="sales-orders">
+<h2>Sales orders: order, dispatch, invoice</h2>
+<p>A sales order records what a customer has ordered from you, before the goods go. It prints and shares like a quotation (title <b>SALES ORDER</b>, numbered <code>SO/2026-27/0001</code>), but it is <b>not a sale</b>: it is never in your totals, reports or GST returns, and it never changes stock. Stock moves when the goods actually go, on the delivery challan or the invoice made from it.</p>
+<p>Turn it on in <a href="settings.html#features">Settings, Features</a>: tick <b>Sales orders</b> under <b>Invoice screen</b>, and save. It is on to start if you picked <b>Wholesale / trading</b>, <b>Manufacturing</b> or <b>Everything</b> as your <a href="settings.html#business-type">business type</a>. The Dashboard's invoice list then has a ${ui('Sales orders')} tab beside ${ui('Invoices')}, ${ui('Cancelled')} and ${ui('Trash')}, and the orders move there from the Invoices tab.</p>
+<ol class="steps">
+  <li><strong>Make the order</strong>${ui('New Invoice')}, pick the ${ui('Sales Order')} chip, fill in the customer and items, and ${ui('Save')}. From an accepted quotation: on the Dashboard, its ${ui('⋯')} menu, ${ui('Make sales order')} (the quotation then shows <b>Converted</b>). Type the customer's own PO number in <b>Buyer's Order No</b> under <a href="#order-details">order details</a> if they gave you one.</li>
+  <li><strong>Send part of it</strong>On the ${ui('Sales orders')} tab, click the truck, <b>Make delivery challan</b>. A delivery challan opens with everything still to send; change each <b>Qty</b> to what goes now, and ${ui('Save')}. Its stock goes out, and the order shows <b>Partly dispatched</b>. Do it again for the next lot: only what is still to send is filled in.</li>
+  <li><strong>Invoice it</strong>Click the green page, <b>Invoice the rest</b>. One tax invoice opens for everything not yet invoiced: what is still to send plus what went on challans that are not invoiced yet. Those challans are taken into this invoice (they show <b>Converted</b>), so their goods leave stock only once. ${ui('Save')}, and the order shows <b>Invoiced</b>. You can also convert each challan to its own invoice from the Invoices tab, as for any challan.</li>
+  <li><strong>Get paid</strong>Payments are recorded on the invoices, as always.</li>
+</ol>
+<div class="table-wrap"><table>
+  <tr><th>Status</th><th>Means</th></tr>
+  <tr><td>Open</td><td>Nothing sent or invoiced from it yet.</td></tr>
+  <tr><td>Partly dispatched</td><td>Some of it has gone on challans or invoices.</td></tr>
+  <tr><td>Dispatched</td><td>Everything has gone, but not all of it is invoiced.</td></tr>
+  <tr><td>Invoiced</td><td>Invoices cover every item.</td></tr>
+  <tr><td>Cancelled</td><td>You cancelled it (${ui('⋯')}, ${ui('Cancel order')}). It keeps its number and moves to the Cancelled tab.</td></tr>
+</table></div>
+<p>Under the status each order shows how much has gone (<b>4 of 10 sent</b>, and how much is invoiced) and the numbers of its challans and invoices. Opening a saved order shows the same under the type chips; a challan or invoice made from an order says <b>Made from sales order</b> with its number. The order's number prints on them as <b>Buyer's Order No</b> with the order date, or, when the order already has the customer's PO number there, as <b>Reference No &amp; Date</b>.</p>
+<p>The status is worked out from the challans and invoices made from the order each time you look, so cancelling or deleting one of them puts its quantity back on the order. Items are matched by their line on the order, so keep each item on its own line.</p>
 </section>
 
 <section id="cancel">
@@ -878,7 +947,7 @@ export default [
 <section id="printed-totals">
 <h2>What prints: the totals</h2>
 <p>On the left, the <b>amount in words</b> and a <b>Scan to pay (UPI)</b> QR code with your UPI ID and the amount. The QR only prints on rupee invoices, with a UPI ID set and a total above zero.</p>
-<p>On the right, in order: Subtotal, Discount, CGST and SGST or IGST, GST Cess, TCS, Discount on total, Round-off, and <b>Total Due</b>. For a credit note, the last line reads <b>Credit Amount</b>. With TDS, <b>Less: TDS</b> and <b>Net Receivable</b> follow.</p>
+<p>On the right, in order: Subtotal, Discount, Trade discount (before GST), CGST and SGST or IGST, GST Cess, TCS, Discount on total, Round-off, and <b>Total Due</b>. For a credit note, the last line reads <b>Credit Amount</b>. With TDS, <b>Less: TDS</b> and <b>Net Receivable</b> follow.</p>
 </section>
 
 <section id="printed-footer">
@@ -928,14 +997,14 @@ export default [
 <p>On a receipt size, ${ui('Print')} shows the receipt at 160% so you can read it. Its buttons:</p>
 <table>
   <tr><td>${ui('Print')}</td><td>Sends it to the printer. Shows "Sending…" while it works.</td></tr>
-  <tr><td>${ui('Download PDF')}</td><td>Saves and downloads a PDF instead, the same as Save &amp; Download.</td></tr>
+  <tr><td>${ui('Download PDF')}</td><td>Saves and downloads a PDF instead, the same as Save PDF.</td></tr>
   <tr><td>${ui('Cancel')}</td><td>Closes it. So does <kbd>Esc</kbd>.</td></tr>
 </table>
 </section>
 
 <section id="auto-print">
 <h2>Printing straight after saving</h2>
-<p>At a busy counter, turn on <a href="print-settings.html#auto-print">Auto-print on save</a>: ${ui('Save &amp; Download')} then prints the receipt as well, with no extra click. It can also be turned on for just one client, in their details.</p>
+<p>At a busy counter, turn on <a href="print-settings.html#auto-print">Auto-print on save</a>: ${ui('Save PDF')} then prints the receipt as well, with no extra click. It can also be turned on for just one client, in their details.</p>
 </section>
 
 <section id="receipt-contents">

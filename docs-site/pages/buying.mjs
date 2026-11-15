@@ -28,7 +28,7 @@ export default [
 
 <h3>Search and filters</h3>
 <ul>
-  <li><b>Search supplier, invoice...</b>: type part of a supplier's name, their invoice number or their GSTIN.</li>
+  <li><b>Search supplier, invoice...</b>: type part of a supplier's name, their invoice number, their GSTIN, or a serial number / IMEI on one of its lines (<a href="#purchase-items">Serial No. column</a>).</li>
   <li><b>Year</b>: the current financial year (April to March) to start. Pick one of the last five years, or <b>All years</b>.</li>
   <li><b>All bills</b> / <b>Unpaid / Partly paid</b> / <b>Paid</b>: pick <b>Unpaid / Partly paid</b> to see only the bills you still have to pay.</li>
   <li><b>Cost centre</b>: only when <a href="reports.html#cost-centres">cost centres</a> are turned on. <b>All cost centres</b>, <b>No cost centre</b>, or one branch, site or project.</li>
@@ -107,7 +107,7 @@ export default [
 
 <section id="purchase-tds">
 <h3>TDS on a purchase bill</h3>
-<p>If you must deduct income-tax TDS when you pay this supplier (a contractor under 194C, a professional under 194J, rent under 194I...), record it on the bill. Under the totals strip, tick <b>TDS deducted</b>:</p>
+<p>If you must deduct income-tax TDS when you pay this supplier (a contractor under 393(1) Sl. 6(i), a professional under Sl. 6(iii), rent under Sl. 2(ii), the 2025 Act's places for 194C, 194J and 194I...), record it on the bill. Under the totals strip, tick <b>TDS deducted</b>:</p>
 <ol class="steps">
   <li><strong>Section</strong>Pick the section. Its usual rate fills in.</li>
   <li><strong>Rate or amount</strong>Check the <b>Rate %</b>: the TDS is worked out on the taxable value (before GST), and the amount box shows it as a hint. To use an exact figure instead, type it in the amount box.</li>
@@ -128,12 +128,19 @@ export default [
   <tr><td><b>Rate</b></td><td>The price of <b>one</b> unit <b>before GST</b>, as on the supplier's bill.</td></tr>
   <tr><td><b>Tax %</b></td><td>The GST rate: 0%, 0.1%, 0.25%, 3%, 5%, 12%, 18% (to start), 28% or 40%. For any other rate pick ${ui('Other…')}: a box asks for a rate between 0 and 100 (up to two decimals), then ${ui('Apply rate')}.</td></tr>
   <tr><td><b>Cess %</b></td><td>Compensation cess, only for goods that carry it (tobacco, pan masala, aerated drinks, coal, some vehicles). 0 for everything else.</td></tr>
+  <tr><td><b>Discount</b></td><td>Only when shown (see below). A discount the supplier gave on this line: type the number, then pick <b>%</b> (a percent of the line) or <b>₹</b> (an amount off the whole line). It comes off before GST and cess, as on the supplier's bill.</td></tr>
+  <tr><td><b>Serial No. / IMEI</b></td><td>Only when shown (see below). The serial number or IMEI of each piece, separated by commas. Not on purchase orders.</td></tr>
   <tr><td>Bin</td><td>Removes the row. The last row cannot be removed.</td></tr>
 </table></div>
+<p><b>Extra columns:</b> two tick boxes next to <b>Items</b>, <b>Discount column</b> and <b>Serial No. column</b>, show those columns. Your choice is remembered in this browser. A bill that already has a discount or a serial number on a line always shows that column (its tick box is then greyed out).</p>
+<ul>
+  <li><strong>With a discount</strong>, the line's taxable value is quantity × rate less the discount; GST, cess, the bill total, input tax credit in GSTR-3B and GSTR-2B matching all use that. The product's <b>Purchase price</b> becomes the price of one unit after the discount. The view and the PDF show <b>Discount 10%</b> (or the amount) under the item. A return of a discounted line (<a href="#purchase-returns">debit note</a>) goes back at the discounted value; an amount off the line is shared out over the quantity returned.</li>
+  <li><strong>With serial numbers</strong>, the view and the PDF show <b>S/N:</b> and the numbers under the item, and the search box of the purchase list finds a bill by any serial number or IMEI, or part of one.</li>
+</ul>
 <p>${ui('Add Item')} adds a new row and puts the cursor in its name, so you can keep typing: ${key('Tab')} to the button, ${key('Enter')}, and type the next item.</p>
 <p>Clicking <b>Qty</b>, <b>Rate</b> or <b>Cess %</b> selects what is in it, so typing replaces it (you get 18, not 018).</p>
 <p>If you pick a different item in the same row, its details replace the old item's. A value you typed yourself is kept.</p>
-<p>The strip under the items adds up as you type: <b>Taxable</b> (quantity × rate for every row), <b>CGST</b> and <b>SGST</b> (half the GST each) or <b>IGST</b> for an inter-state bill, <b>Cess</b> when there is any, <b>Round-off</b> when ticked, and <b>Total</b>.</p>
+<p>The strip under the items adds up as you type: <b>Taxable</b> (quantity × rate for every row, less any discount), <b>CGST</b> and <b>SGST</b> (half the GST each) or <b>IGST</b> for an inter-state bill, <b>Cess</b> when there is any, <b>Round-off</b> when ticked, and <b>Total</b>.</p>
 <div class="note info"><strong>HSN, CGST, SGST, IGST?</strong>
 <p><b>HSN</b> is the code for the type of goods (<b>SAC</b> for services). <b>CGST</b> and <b>SGST</b> are the central and state halves of GST, charged when the supplier is in your state; <b>IGST</b> is the single tax charged when they are in another state. See the <a href="glossary.html#terms">glossary</a>.</p></div>
 </section>
@@ -456,6 +463,27 @@ export default [
 <p>When the rest comes, convert the same order again: only what is still to come is filled in. Deleting a bill made from an order takes the stock back out and puts the order back to Open or Partly received.</p>
 </section>
 
+<section id="purchase-returns">
+<h2>Returning goods to a supplier (debit notes)</h2>
+<p>When goods you bought go back to the supplier (damaged, wrong item, too many), record it as a <b>debit note</b> against their purchase bill. The supplier issues you a credit note for the return; your debit note is your record of it, and the document you send them.</p>
+<ol class="steps">
+  <li><strong>Open the return</strong>In the purchase list, click the return arrow on the bill, <b>Return to supplier (debit note)</b>. It is shown while anything on the bill can still go back.</li>
+  <li><strong>Choose what goes back</strong>For each item the window shows <b>Bought</b>, <b>Returned</b> (on earlier debit notes) and the rate. Type the quantity going back in <b>Return now</b>; you cannot send back more than is left. Set the <b>Debit note date</b>, a <b>Reason</b> (pick one or type your own) and an optional <b>Note</b>. The taxable value, GST and <b>Debit note total</b> are worked out at the bill's rates.</li>
+  <li><strong>Save debit note</strong>It gets the next number, <code>DN/26-27/0001</code> (each business counts its own), and opens the ${ui('Returns')} tab on Purchases.</li>
+  <li><strong>Send it</strong>The download button on the row makes the PDF: <b>DEBIT NOTE</b>, your business, the supplier, <b>Against bill No</b> and <b>Bill date</b>, the goods returned with their GST, and a signature box. ${ui('⋯')}, ${ui('Print')} prints it.</li>
+</ol>
+<p><strong>What a debit note changes</strong></p>
+<ul>
+  <li><strong>Stock:</strong> the returned quantity goes out of the product's stock. The Stock report on an earlier date counts it back.</li>
+  <li><strong>What you owe the supplier:</strong> the bill's <b>Balance due</b> (on the list, in the view, in its PDF and in Reports, Party Outstanding, Suppliers) is less the debit note's total. A bill already paid in full stays Paid: the supplier owes you the refund.</li>
+  <li><strong>Purchases total and ITC:</strong> the Purchases cards show <b>Total Purchases (less returns)</b> and the GST card less the returned GST. Cost-centre purchases and the Income Tax trading purchases are less its taxable value.</li>
+  <li><strong>GSTR-3B:</strong> the GST on the returned goods comes off <b>Table 4(A)(5), all other ITC</b>, in the month of the debit note, as GSTR-2B nets off the supplier's credit note. The Table 4 card shows the line <b>Less: purchase returns (debit notes)</b>. If a month's returns are more than its input tax credit, the extra is shown as <b>(B)(2) ITC reversed</b> and added to the tax to pay.</li>
+  <li><strong>GSTR-2B matching</strong> is not changed: it matches your purchase bills as before. The supplier's credit note shows in your GSTR-2B under credit notes.</li>
+</ul>
+<p><strong>Rules:</strong> the <b>Debit note date</b> cannot be before the bill's date. Editing a bill that has returns: a returned line cannot be cut below what went back, nor renamed or removed (the debit note points at it); cancel or delete the debit note first. Choosing <b>Paid</b> on such a bill records the balance less the returns. A bill sent back in full owes nothing, round-off included. A bill saved before bills had a business gives its debit note the open business, and assigning the bill to a business later moves its debit notes with it. If the stock could not be changed after the debit note was saved, it says so (check Products) instead of letting you save it twice; a returned item that matches no product is named, since no stock moves for it. Returns on a <b>reverse charge</b> bill also come off the reverse-charge tax in GSTR-3B 3.1(d), in the same month.</p>
+<p><strong>Cancel or delete:</strong> on the Returns tab, ${ui('⋯')}, ${ui('Cancel debit note')} keeps its number but undoes all of the above (stock back, ITC and balance back); ${ui('Undo cancel')} applies it again. ${ui('Delete')} removes it for good and also puts the stock back. A purchase bill that has debit notes cannot be deleted until they are deleted.</p>
+</section>
+
 <section id="unassigned">
 <h2>"Not assigned to a business"</h2>
 <p>This only matters if you keep <a href="settings.html#multiple-businesses">more than one business</a> in the app. Records saved before you began keeping businesses separate have no business recorded, so they show under <b>every</b> business. Nothing is hidden, so nothing goes missing.</p>
@@ -485,15 +513,18 @@ export default [
 <section id="expense-list">
 <h2>The expense list</h2>
 <p>Open <b>Expenses</b> from the menu. ${ui('Add Expense')} at the top right opens a new expense.</p>
-<h3>The three totals</h3>
-<p><b>Total Expenses</b> is everything you paid, with GST. <b>GST Paid (ITC)</b> is the GST inside those amounts, your input tax credit. <b>Entries</b> is how many expenses are shown. All three follow the search and filters.</p>
+<h3>The four totals</h3>
+<p><b>Outstanding</b> is what you still have to pay on the expenses shown (Unpaid and Partly paid ones); click it to list only those. <b>Total Expenses</b> is everything, with GST. <b>GST Paid (ITC)</b> is the GST inside those amounts, your input tax credit. <b>Entries</b> is how many expenses are shown. All four follow the search and filters.</p>
+<h3>Paid, Unpaid or Partly paid</h3>
+<p>When you add an expense, <b>Payment</b> says whether it is <b>Paid</b> (the usual), <b>Unpaid</b> (a bill you still owe, such as rent due or a repair not yet paid) or <b>Partly paid</b> (type what you have paid so far in <b>Paid so far</b>). The <b>Payment</b> column shows how much is still due, and ${ui('✓')} (<b>Mark as paid</b>) on the row records the rest as paid. The <b>Cash book</b> counts only what was paid in cash, so an Unpaid expense does not show there until you pay it. Expenses entered before this option are Paid.</p>
 <h3>Search and filters</h3>
 <ul>
   <li><b>Search expenses...</b>: part of the description, the vendor's name or the bill number.</li>
   <li><b>All Categories</b>: show one <a href="#categories">category</a> only, such as Office Rent.</li>
   <li><b>Year</b>: the current financial year (April to March) to start; one of the last five, or <b>All years</b>.</li>
+  <li><b>Paid and unpaid / Unpaid / Partly paid</b>: show only the expenses you still owe.</li>
   <li><b>Cost centre</b>: only when <a href="reports.html#cost-centres">cost centres</a> are on.</li>
-  <li>The red ${ui('✕')} clears the search, category and cost centre, and puts the year back to the current one.</li>
+  <li>The red ${ui('✕')} clears the search, category, payment and cost centre filters, and puts the year back to the current one.</li>
 </ul>
 <h3>Expense Records</h3>
 <p>The table lists <b>Date</b>, <b>Description</b>, <b>Category</b>, <b>Vendor</b>, <b>Amount</b>, <b>GST</b> and <b>Mode</b> (how you paid), with a <b>Total</b> row. The pencil opens an expense to change it; the bin deletes it, after asking. The ${ui('Print / PDF')}, ${ui('Excel')} and ${ui('CSV')} buttons save the <a href="#export">expense statement</a>.</p>

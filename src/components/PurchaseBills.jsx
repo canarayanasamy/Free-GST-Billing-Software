@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import { ShoppingCart, Plus, Edit3, Trash2, Search, X, Save, Download, Wand2, Eye, ClipboardList, IndianRupee } from 'lucide-react';
+import { ShoppingCart, Plus, Edit3, Trash2, Search, X, Save, Download, Wand2, Eye, ClipboardList, IndianRupee, RotateCcw } from 'lucide-react';
 import HelpButton from './HelpButton';
-import { getAllPurchases, savePurchase, deletePurchase, getAllProducts, saveProduct, getProfile, getEnabledModules, getAllPurchaseOrders, savePurchaseOrder, getNextPoNumber } from '../store';
-import { formatCurrency, getFYOptions, belongsToProfile, isUnassignedToBusiness, isInterstateSupply, localToday, roundQty, splitPurchaseTax, isModuleEnabled, businessKeyOf, getAllUnits, TDS_SECTIONS } from '../utils';
+import { getAllPurchases, savePurchase, deletePurchase, getAllProducts, saveProduct, getProfile, getEnabledModules, getAllPurchaseOrders, savePurchaseOrder, getNextPoNumber, getAllDebitNotes, saveDebitNote } from '../store';
+import { formatCurrency, getFYOptions, belongsToProfile, isUnassignedToBusiness, isInterstateSupply, localToday, roundQty, splitPurchaseTax, isModuleEnabled, businessKeyOf, getAllUnits, TDS_SECTIONS_2025, tdsSectionsFor, movedSection, sectionOptionLabel, sectionShort } from '../utils';
 import { purchaseTdsAmount } from '../utils/tdsTcs';
-import { purchaseTotals as calcPurchaseTotal, billFormFromPo } from '../utils/purchaseOrders';
+import { purchaseTotals as calcPurchaseTotal, billFormFromPo, purchaseLineTax, purchaseUnitCost, lineDiscountFields, purchaseHasSerial } from '../utils/purchaseOrders';
 import PurchaseOrders from './PurchaseOrders';
 import TableExport from './TableExport';
 import BulkCsvImport from './BulkCsvImport';
@@ -15,8 +15,22 @@ import { confirmAction, promptAction } from './ConfirmModal';
 import { useCostCentres } from './useCostCentres';
 import { CostCentreSelect, CostCentreFilter } from './CostCentrePicker';
 import { matchesCentre, centreFields } from '../utils/costCentres';
-import { PURCHASE_STATUS_LABEL, OVERPAY_SLACK, purchaseStatus, purchaseBalance, purchasePaid, purchaseOwed, hasPurchasePayments, withPurchasePayments, markPurchasePaid, markPurchaseUnpaid, purchasePaymentModeName } from '../utils/purchasePayments';
+import { PURCHASE_STATUS_LABEL, OVERPAY_SLACK, purchaseStatus, purchaseBalance, purchasePaid, purchaseOwed, hasPurchasePayments, withPurchasePayments, markPurchasePaid, markPurchaseUnpaid, purchasePaymentModeName, purchasePaymentDue } from '../utils/purchasePayments';
 import PurchasePaymentModal from './PurchasePaymentModal';
+import DebitNotesList, { ReturnToSupplierModal } from './DebitNotes';
+import { askPaidMode } from './askPaidMode';
+import { withReturns, returnableLines, debitNoteTotals, editProblem, notesToRestamp } from '../utils/debitNotes';
+// v1.10.85 (#137, #158) - barcodes: labels for a bill, and a scanned code in
+// the item name box. Kept to these imports, one state, one button, one modal
+// and one onKeyDown, marked "#137 barcodes" below.
+import { Barcode } from 'lucide-react';
+import BarcodeLabels from './BarcodeLabels';
+import { findByBarcode } from '../utils/barcode';
+// v1.10.85 (#148) - alternate units on a purchase line, and the low-stock PO
+// handed over from Products or the Dashboard.
+import { baseQty, lineFactor, altLineFields } from '../utils';
+import { hasAltUnit, lineInUnit } from '../utils/stock';
+import { takeReorderDraft } from '../utils/reorderDraft';
 
 // v1.10.31 — UI-C3: Same accent-color helper as ClientsView so the
 // Purchase Bill PDF header rule + totals line pick up the user's brand.
@@ -95,6 +109,17 @@ const emptyForm = {
 
 // v1.10.6 — audit L4: local copy removed, imported from utils above.
 
+// v1.10.85 (#171, #160) - the small print under a line's name: its discount
+// and its serial numbers / IMEI.
+const lineNote = (it) => [
+  (Number(it?.discount) || 0) > 0 ? `Discount ${it.discountType === 'percent' ? `${it.discount}%` : formatCurrency(it.discount)}` : '',
+  String(it?.serialNo || '').trim() ? `S/N: ${String(it.serialNo).trim()}` : '',
+].filter(Boolean).join(' · ');
+// v1.10.85 - the Discount and Serial No. columns of the form: shown when
+// switched on (remembered in this browser) or when a line already has one.
+const COLS_KEY = 'fgsb_purchaseLineCols';
+const savedCols = () => { try { return JSON.parse(localStorage.getItem(COLS_KEY) || '{}') || {}; } catch { return {}; } };
+
 // The TDS fields stored on a purchase bill (cleared when TDS is off).
 const purchaseTdsFields = (form, taxable) => {
   if (!form.tdsOn) return { tdsAmount: 0, tdsSection: '', tdsRate: 0, tdsManual: false };
@@ -121,12 +146,23 @@ export default function PurchaseBills() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ ...emptyForm, items: [{ ...emptyItem }] });
+  // v1.10.85 (#171, #160) - optional Discount and Serial No. columns.
+  const [lineCols, setLineCols] = useState(savedCols);
+  const toggleLineCol = (key) => setLineCols(prev => {
+    const next = { ...prev, [key]: !prev[key] };
+    try { localStorage.setItem(COLS_KEY, JSON.stringify(next)); } catch { /* private mode */ }
+    return next;
+  });
+  const showDiscountCol = !!lineCols.discount || form.items.some(i => (Number(i.discount) || 0) > 0);
+  const showSerialCol = !!lineCols.serial || form.items.some(i => String(i.serialNo || '').trim());
   // v1.10.22 — OCR modal state.
   const [showOCR, setShowOCR] = useState(false);
   // v1.10.30 — reported: "add a view only option modal type so can user
   // check the price without downloading the file every time". Holds the
   // purchase being previewed; modal has a Download PDF button inside.
   const [viewPurchase, setViewPurchase] = useState(null);
+  // #137 barcodes - the bill whose labels are being printed.
+  const [labelBill, setLabelBill] = useState(null);
   // v1.10.83 (#123) - the bill whose supplier payments are open, and the
   // status filter ('' all, 'due' unpaid or partly paid, 'Paid').
   const [payPurchase, setPayPurchase] = useState(null);
@@ -135,6 +171,9 @@ export default function PurchaseBills() {
   const [poEnabled] = useState(() => isModuleEnabled('purchaseOrders', getEnabledModules()));
   const [tab, setTab] = useState('bills');
   const [orders, setOrders] = useState([]);
+  // v1.10.85 (#168) - purchase returns, and the bill being returned.
+  const [debitNotes, setDebitNotes] = useState([]);
+  const [returnBill, setReturnBill] = useState(null);
   // The number shown on a new PO; only that one is swapped for a reserved
   // number on save, so a number the user typed is kept.
   const previewedPoRef = useRef('');
@@ -193,26 +232,42 @@ export default function PurchaseBills() {
   // record belonged to, so guessing would file it into the wrong books.
   const unassignedPurchases = purchases.filter(isUnassignedToBusiness);
   const assignUnassignedPurchases = async () => {
-    await Promise.all(unassignedPurchases.map(r => savePurchase({
+    const assigned = unassignedPurchases.map(r => ({
       ...r,
       ownerGstin: ownerProfile?.gstin || '',
       ownerName: ownerProfile?.businessName || '',
-    })));
+    }));
+    await Promise.all(assigned.map(r => savePurchase(r)));
+    await restampDebitNotes(assigned);
     loadPurchases();
+  };
+  // v1.10.85 (#168) - a bill's debit notes follow it to its business, so they
+  // never show under every company. Loads every note: one under another
+  // business (or none) is exactly the one to fix.
+  const restampDebitNotes = async (bills) => {
+    try {
+      const all = await getAllDebitNotes();
+      await Promise.all(notesToRestamp(bills, all).map(dn => saveDebitNote(dn)));
+    } catch { /* shown again next time; the bills are saved */ }
   };
 
   const loadPurchases = async () => {
     try {
-      const [rows, prof, pos] = await Promise.all([
+      const [rows, prof, pos, dns] = await Promise.all([
         getAllPurchases(),
         getProfile().catch(() => null),
         poEnabled ? getAllPurchaseOrders().catch(() => []) : [],
+        getAllDebitNotes().catch(() => []),
       ]);
       setOwnerProfile(prof);
       // v1.10.65 (#58 item 3) — show only this business's records. Anything
       // saved before businesses were separated has no owner recorded and is
       // always shown, so nothing disappears from an existing ledger.
-      setPurchases((rows || []).filter(r => belongsToProfile(r, prof)));
+      // v1.10.85 (#168) - each bill knows what its debit notes took off it
+      // (_returned), so its balance and status follow.
+      const mineDn = (dns || []).filter(r => belongsToProfile(r, prof));
+      setDebitNotes(mineDn);
+      setPurchases(withReturns((rows || []).filter(r => belongsToProfile(r, prof)), mineDn));
       setOrders((pos || []).filter(r => belongsToProfile(r, prof)));
     } catch {
       toast('Failed to load purchases', 'error');
@@ -246,9 +301,11 @@ export default function PurchaseBills() {
   const filtered = purchases.filter(p => {
     if (search.trim()) {
       const q = search.toLowerCase();
+      // v1.10.85 (#160) - also a serial number / IMEI on any line.
       if (!(p.supplierName || '').toLowerCase().includes(q) &&
           !(p.invoiceNumber || '').toLowerCase().includes(q) &&
-          !(p.supplierGstin || '').toLowerCase().includes(q)) return false;
+          !(p.supplierGstin || '').toLowerCase().includes(q) &&
+          !purchaseHasSerial(p, q)) return false;
     }
     if (fyFilter) {
       const fy = fyOptions.find(f => f.value === fyFilter);
@@ -265,6 +322,11 @@ export default function PurchaseBills() {
     const t = calcPurchaseTotal(p.items, !!p.applyRoundOff);
     return { taxable: acc.taxable + t.taxable, tax: acc.tax + t.tax, total: acc.total + t.finalTotal, owed: acc.owed + purchaseBalance(p) };
   }, { taxable: 0, tax: 0, total: 0, owed: 0 });
+  // v1.10.85 (#168) - returns against the bills shown come off the cards.
+  const shownIds = new Set(filtered.map(p => p.id));
+  const returnStats = debitNotes.filter(dn => !dn.cancelled && shownIds.has(dn.purchaseId)).map(debitNoteTotals)
+    .reduce((acc, t) => ({ total: acc.total + t.total, tax: acc.tax + t.tax }), { total: 0, tax: 0 });
+  const canReturn = (p) => returnableLines(p, debitNotes).some(l => l.left > 0);
 
   const openAdd = () => {
     setForm({ ...emptyForm, date: localToday(), items: [{ ...emptyItem }] });
@@ -329,6 +391,23 @@ export default function PurchaseBills() {
     } catch { /* offline: the user can type a number */ }
   };
 
+  // v1.10.85 - "Make purchase order" for low stock: the lines handed over open
+  // in a new PO once the business is known (its PO number series).
+  const reorderRef = useRef(null);
+  useEffect(() => {
+    reorderRef.current = reorderRef.current || takeReorderDraft();
+  }, []);
+  useEffect(() => {
+    if (!reorderRef.current || !ownerProfile) return;
+    const items = reorderRef.current;
+    reorderRef.current = null;
+    if (poEnabled) setTab('orders');
+    openNewPo({ items });
+    toast('Purchase order for the low-stock products: pick the supplier, check the quantities and save', 'info');
+    // Runs when the business has loaded; openNewPo reads it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownerProfile]);
+
   const openEditPo = (po) => {
     setForm({
       ...emptyForm,
@@ -387,6 +466,8 @@ export default function PurchaseBills() {
         rate: parseFloat(i.rate) || 0,
         taxPercent: parseFloat(i.taxPercent) || 0,
         cessPercent: parseFloat(i.cessPercent) || 0,
+        ...lineDiscountFields(i), // v1.10.85 (#171)
+        ...altLineFields(i), // v1.10.85 (#148) - ordered in boxes: billed in boxes
       }));
     if (!items.length) { toast('Add at least one item with a quantity', 'warning'); return; }
     const existing = editingId ? orders.find(o => o.id === editingId) : null;
@@ -494,7 +575,8 @@ export default function PurchaseBills() {
       doc.setFont('helvetica', 'normal');
       (purchase.items || []).forEach((item, idx) => {
         if (y > 265) { doc.addPage(); y = 20; }
-        const lineTotal = (Number(item.quantity) || 0) * (Number(item.rate) || 0);
+        // v1.10.85 (#171) - after its discount.
+        const lineTotal = purchaseLineTax({ ...item, quantity: Number(item.quantity) || 0, rate: Number(item.rate) || 0 }).amount;
         const withTax = lineTotal * (1 + (Number(item.taxPercent) || 0) / 100);
         // v1.10.30 — reported: "in purchase bill pdf long names got cut in
         // pdf fix". Prior code used `.slice(0, 40)` which mid-word truncated
@@ -503,7 +585,8 @@ export default function PurchaseBills() {
         // width). The row height grows to fit the wrapped text so nothing
         // clips into the next line.
         const nameCol = 70; // mm — width of description column
-        const nameLines = doc.splitTextToSize(String(item.name || '-'), nameCol);
+        // v1.10.85 (#171, #160) - its discount and serial numbers under the name.
+        const nameLines = [String(item.name || '-'), lineNote(item)].filter(Boolean).flatMap((s) => doc.splitTextToSize(s, nameCol));
         const rowH = Math.max(6, nameLines.length * 4.5);
         // Page break if this row won't fit.
         if (y + rowH > 275) { doc.addPage(); y = 20; }
@@ -542,7 +625,7 @@ export default function PurchaseBills() {
       doc.text('TOTAL', marginL + 100, y); doc.text(fmt(t.finalTotal), marginR, y, { align: 'right' });
       if ((Number(purchase.tdsAmount) || 0) > 0) {
         doc.setFont('helvetica', 'normal'); doc.setFontSize(9); y += 6;
-        doc.text(`Less: TDS (${String(purchase.tdsSection || '').replace(/-(co|tech|pm)$/, '')})`, marginL + 100, y); doc.text('-' + fmt(purchase.tdsAmount), marginR, y, { align: 'right' }); y += 5;
+        doc.text(`Less: TDS (${sectionShort(purchase.tdsSection) || 'TDS'})`, marginL + 100, y); doc.text('-' + fmt(purchase.tdsAmount), marginR, y, { align: 'right' }); y += 5;
         doc.setFont('helvetica', 'bold');
         doc.text('Paid to supplier', marginL + 100, y); doc.text(fmt(t.finalTotal - purchase.tdsAmount), marginR, y, { align: 'right' });
       }
@@ -566,10 +649,11 @@ export default function PurchaseBills() {
           y += 5;
         }
       }
-      if (pays.length || purchaseStatus(purchase) === 'Paid') {
+      if (pays.length || purchaseStatus(purchase) === 'Paid' || purchase._returned > 0) {
         y += pays.length ? 1 : 8;
         doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(0);
         if (pays.length) { doc.text('Paid', marginL + 100, y); doc.text(fmt(purchasePaid(purchase)), marginR, y, { align: 'right' }); y += 5; }
+        if (purchase._returned > 0) { doc.text('Returned (debit notes)', marginL + 100, y); doc.text('-' + fmt(purchase._returned), marginR, y, { align: 'right' }); y += 5; }
         doc.setFont('helvetica', 'bold');
         doc.text('Balance due', marginL + 100, y); doc.text(fmt(purchaseBalance(purchase)), marginR, y, { align: 'right' });
       }
@@ -604,6 +688,10 @@ export default function PurchaseBills() {
       toast('Add at least one item with a quantity and rate', 'warning');
       return;
     }
+    // v1.10.85 (#168) - goods already sent back on a debit note: their line
+    // cannot drop below what went back, nor be renamed or removed.
+    const returnsProblem = editingId ? editProblem(purchases.find(p => p.id === editingId), form.items, debitNotes) : '';
+    if (returnsProblem) { toast(returnsProblem, 'warning', 10000); return; }
     try {
       const totals = calcPurchaseTotal(form.items, form.applyRoundOff);
       const before = editingId ? purchases.find(p => p.id === editingId) : null;
@@ -627,7 +715,15 @@ export default function PurchaseBills() {
           cessPercent: parseFloat(i.cessPercent) || 0,
           // v1.10.83 (#112) - only lines from a purchase order carry a unit.
           ...(String(i.unit || '').trim() ? { unit: String(i.unit).trim() } : {}),
+          // v1.10.85 (#171, #160) - a discount and serial numbers only when given.
+          ...lineDiscountFields(i),
+          ...(String(i.serialNo || '').trim() ? { serialNo: String(i.serialNo).trim() } : {}),
+          // v1.10.85 (#148) - bought in the product's second unit (Box = 12).
+          ...altLineFields(i),
         })),
+        // v1.10.85 (#168) - what its debit notes took off (never saved), so
+        // Paid below records the balance less the returns.
+        ...(before?._returned ? { _returned: before._returned } : {}),
         // The purchase order this bill was made from; its status follows the
         // quantities on the bills linked to it.
         ...(form.fromPo ? { fromPo: form.fromPo } : {}),
@@ -657,9 +753,13 @@ export default function PurchaseBills() {
           return;
         }
       } else if (form.paymentStatus === 'Paid' && (before?.paymentStatus || 'Unpaid') !== 'Paid') {
-        purchase = markPurchasePaid(purchaseFields, localToday());
+        // v1.10.85 (#184) - how it was paid: Cash reaches the Cash book.
+        const mode = purchasePaymentDue(purchaseFields) > 0.005 ? await askPaidMode('How was this bill paid?') : 'other';
+        if (!mode) return;
+        purchase = markPurchasePaid(purchaseFields, localToday(), new Date(), mode);
       }
       await savePurchase(purchase);
+      if (editingId) await restampDebitNotes([purchase]);
 
       // v1.10.29 — reported: "items added in purchase bill also available
       // for sale means automatically added to the product page too".
@@ -693,7 +793,7 @@ export default function PurchaseBills() {
         const priorQtyByKey = new Map();
         for (const p of priorLines) {
           const key = p.productId || `name:${(p.name || '').trim().toLowerCase()}`;
-          priorQtyByKey.set(key, (priorQtyByKey.get(key) || 0) + (Number(p.quantity) || 0));
+          priorQtyByKey.set(key, (priorQtyByKey.get(key) || 0) + baseQty(p)); // #148 - in the base unit
         }
 
         // Batch stock adjustments per product so we don't race on parallel saves.
@@ -702,7 +802,7 @@ export default function PurchaseBills() {
         const seenPriorKeys = new Set();
 
         for (const it of purchase.items.filter(x => x.name)) {
-          const qty = Number(it.quantity) || 0;
+          const qty = baseQty(it); // #148 - 3 boxes of 12 add 36
           // Match order: productId (persisted below) → name (case-insensitive).
           let existing = it.productId ? byId.get(it.productId) : null;
           if (!existing) {
@@ -720,7 +820,7 @@ export default function PurchaseBills() {
             stockDeltaById.set(existing.id, (stockDeltaById.get(existing.id) || 0) + delta);
             productsToUpsert.set(existing.id, {
               ...existing,
-              purchasePrice: it.rate,
+              purchasePrice: purchaseUnitCost(it) / lineFactor(it), // v1.10.85 (#171) after its discount; #148 per base unit
               hsn: existing.hsn || it.hsn,
               taxPercent: existing.taxPercent || it.taxPercent,
               cessPercent: existing.cessPercent || it.cessPercent || 0,
@@ -735,7 +835,7 @@ export default function PurchaseBills() {
             productsToUpsert.set(newKey, {
               name: it.name.trim(),
               hsn: it.hsn || '',
-              purchasePrice: it.rate,
+              purchasePrice: purchaseUnitCost(it),
               sellingPrice: it.rate,
               rate: it.rate,
               taxPercent: it.taxPercent || 0,
@@ -800,7 +900,13 @@ export default function PurchaseBills() {
   const changePaymentStatus = async (purchase, paymentStatus) => {
     if (purchaseStatus(purchase) === paymentStatus) return;
     if (paymentStatus === 'Partial') { setPayPurchase(purchase); return; }
-    const next = paymentStatus === 'Paid' ? markPurchasePaid(purchase, localToday()) : markPurchaseUnpaid(purchase);
+    // v1.10.85 (#184) - Paid asks how it was paid (Cash reaches the Cash book).
+    let mode = 'other';
+    if (paymentStatus === 'Paid' && purchasePaymentDue(purchase) > 0.005) {
+      mode = await askPaidMode('How was this bill paid?');
+      if (!mode) { loadPurchases(); return; }
+    }
+    const next = paymentStatus === 'Paid' ? markPurchasePaid(purchase, localToday(), new Date(), mode) : markPurchaseUnpaid(purchase);
     try {
       await savePurchase(next);
       const now = purchaseStatus(next);
@@ -815,7 +921,7 @@ export default function PurchaseBills() {
   // Take a deleted bill's quantities back out of product stock.
   // Matches products the same way saving does: productId, then name.
   const revertPurchaseStock = async (bill) => {
-    const lines = (bill?.items || []).filter(it => it.name && Number(it.quantity) > 0);
+    const lines = (bill?.items || []).filter(it => it.name && baseQty(it) > 0);
     if (!lines.length) return;
     const products = await getAllProducts();
     const byName = new Map(products.map(p => [(p.name || '').trim().toLowerCase(), p]));
@@ -823,7 +929,7 @@ export default function PurchaseBills() {
     const minus = new Map();
     for (const it of lines) {
       const prod = (it.productId && byId.get(it.productId)) || byName.get(it.name.trim().toLowerCase());
-      if (prod) minus.set(prod.id, (minus.get(prod.id) || 0) + Number(it.quantity));
+      if (prod) minus.set(prod.id, (minus.get(prod.id) || 0) + baseQty(it)); // #148 - 3 boxes take back 36
     }
     await Promise.all([...minus].map(([pid, qty]) => {
       const prod = byId.get(pid);
@@ -834,6 +940,12 @@ export default function PurchaseBills() {
   const handleDelete = async (id) => {
     // A bill's payments are kept only on the bill, so they go with it.
     const target = purchases.find(p => p.id === id);
+    // v1.10.85 (#168) - its returns would be left pointing at nothing.
+    const dns = debitNotes.filter(dn => dn.purchaseId === id);
+    if (dns.length) {
+      toast(`This bill has ${dns.length === 1 ? 'a debit note' : `${dns.length} debit notes`} (${dns.map(dn => dn.dnNumber).join(', ')}). Delete ${dns.length === 1 ? 'it' : 'them'} on the Returns tab first.`, 'warning', 8000);
+      return;
+    }
     const paidNote = hasPurchasePayments(target)
       ? ` Its payments of ${formatCurrency(purchasePaid(target))} are deleted with it and leave the Cash book. To re-enter the bill, edit it instead.`
       : '';
@@ -1017,6 +1129,12 @@ export default function PurchaseBills() {
     setForm(prev => {
       const items = [...prev.items];
       const cur = { ...items[index], name: value };
+      // #148 - a new item name starts in its own unit again.
+      if (cur.unitFactor) {
+        delete cur.unitFactor;
+        delete cur.baseUnit;
+        if (prev.kind !== 'po') delete cur.unit;
+      }
       if (match) {
         const last = cur._auto || {};
         if (isOursToReplace(cur.hsn, last.hsn)) cur.hsn = match.hsn;
@@ -1117,15 +1235,30 @@ export default function PurchaseBills() {
 
       {/* v1.10.83 (#112) - Purchase bills | Purchase orders, only when the
           Purchase orders feature is on. */}
-      {poEnabled && (
+      {/* v1.10.85 (#168) - and Returns, once there is a debit note. */}
+      {(poEnabled || debitNotes.length > 0) && (
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
           <button className={`btn ${tab === 'bills' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('bills')} aria-pressed={tab === 'bills'}>
             <ShoppingCart size={16} /> Purchase bills
           </button>
-          <button className={`btn ${tab === 'orders' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('orders')} aria-pressed={tab === 'orders'}>
-            <ClipboardList size={16} /> Purchase orders
-          </button>
+          {poEnabled && (
+            <button className={`btn ${tab === 'orders' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('orders')} aria-pressed={tab === 'orders'}>
+              <ClipboardList size={16} /> Purchase orders
+            </button>
+          )}
+          {debitNotes.length > 0 && (
+            <button className={`btn ${tab === 'returns' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('returns')} aria-pressed={tab === 'returns'}>
+              <RotateCcw size={16} /> Returns ({debitNotes.length})
+            </button>
+          )}
         </div>
+      )}
+
+      {tab === 'returns' && <DebitNotesList notes={debitNotes} purchases={purchases} ownerProfile={ownerProfile} onChanged={() => { loadPurchases(); loadProducts(); }} />}
+      {returnBill && (
+        <ReturnToSupplierModal bill={returnBill} debitNotes={debitNotes} ownerProfile={ownerProfile}
+          onClose={() => setReturnBill(null)}
+          onSaved={() => { setReturnBill(null); setTab('returns'); loadPurchases(); loadProducts(); }} />
       )}
 
       {tab === 'orders' && (
@@ -1142,6 +1275,8 @@ export default function PurchaseBills() {
       )}
 
       {/* v1.10.30 — Purchase view modal (quick check, no download). */}
+      {/* #137 barcodes */}
+      {labelBill && <BarcodeLabels bill={labelBill} debitNotes={debitNotes} title="Print labels for this purchase" onClose={() => setLabelBill(null)} />}
       {viewPurchase && (() => {
         const p = viewPurchase;
         const t = calcPurchaseTotal(p.items, !!p.applyRoundOff);
@@ -1178,12 +1313,13 @@ export default function PurchaseBills() {
                   </thead>
                   <tbody>
                     {(p.items || []).map((it, idx) => {
-                      const line = (Number(it.quantity) || 0) * (Number(it.rate) || 0);
+                      const line = purchaseLineTax({ ...it, quantity: Number(it.quantity) || 0, rate: Number(it.rate) || 0 }).amount;
                       const withTax = line * (1 + (Number(it.taxPercent) || 0) / 100);
                       return (
                         <tr key={idx}>
                           <td style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
-                          <td style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{it.name || '—'}</td>
+                          <td style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{it.name || '—'}
+                            {lineNote(it) && <div className="text-muted" style={{ fontSize: '0.75rem' }}>{lineNote(it)}</div>}</td>
                           <td style={{ color: 'var(--text-muted)' }}>{it.hsn || '—'}</td>
                           <td style={{ textAlign: 'right' }}>{it.quantity || 0}</td>
                           <td style={{ textAlign: 'right' }}>{formatCurrency(it.rate || 0)}</td>
@@ -1218,7 +1354,7 @@ export default function PurchaseBills() {
                 <span style={{ borderTop: '2px solid var(--text)', paddingTop: 6, textAlign: 'right', fontWeight: 700, fontSize: '1.05rem', color: 'var(--text)' }}>{formatCurrency(t.finalTotal)}</span>
                 {(Number(p.tdsAmount) || 0) > 0 && (
                   <>
-                    <span style={{ color: 'var(--text-muted)' }}>Less: TDS ({String(p.tdsSection || '').replace(/-(co|tech|pm)$/, '')}{p.tdsRate ? ` @ ${p.tdsRate}%` : ''})</span>
+                    <span style={{ color: 'var(--text-muted)' }}>Less: TDS ({sectionShort(p.tdsSection)}{p.tdsRate ? ` @ ${p.tdsRate}%` : ''})</span>
                     <span style={{ textAlign: 'right' }}>-{formatCurrency(p.tdsAmount)}</span>
                     <span style={{ fontWeight: 600 }}>Paid to supplier</span>
                     <span style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(t.finalTotal - p.tdsAmount)}</span>
@@ -1227,6 +1363,10 @@ export default function PurchaseBills() {
                 {/* v1.10.83 (#123) - paid so far and what is left. */}
                 {hasPurchasePayments(p) && (
                   <><span style={{ color: 'var(--text-muted)' }}>Paid</span><span style={{ textAlign: 'right' }}>{formatCurrency(purchasePaid(p))}</span></>
+                )}
+                {/* v1.10.85 (#168) */}
+                {p._returned > 0 && (
+                  <><span style={{ color: 'var(--text-muted)' }}>Returned (debit notes)</span><span style={{ textAlign: 'right' }}>-{formatCurrency(p._returned)}</span></>
                 )}
                 <span style={{ fontWeight: 600 }}>Balance due</span>
                 <span style={{ textAlign: 'right', fontWeight: 600, color: purchaseBalance(p) > 0.005 ? 'var(--danger)' : 'var(--success)' }}>{formatCurrency(purchaseBalance(p))}</span>
@@ -1252,6 +1392,10 @@ export default function PurchaseBills() {
                 <button className="btn btn-secondary" onClick={() => setViewPurchase(null)}>Close</button>
                 <button className="btn btn-secondary" onClick={() => { setPayPurchase(p); setViewPurchase(null); }}><IndianRupee size={14} /> Payments</button>
                 <button className="btn btn-secondary" onClick={() => { openEdit(p); setViewPurchase(null); }}><Edit3 size={14} /> Edit</button>
+                {/* #137 barcodes - one label per piece bought, matched to Products. */}
+                {isModuleEnabled('barcodes', getEnabledModules()) && (
+                  <button className="btn btn-secondary" onClick={() => { setLabelBill(p); setViewPurchase(null); }}><Barcode size={14} /> Print labels for this purchase</button>
+                )}
                 <button className="btn btn-primary" onClick={() => viewAsPdf(p)}><Download size={14} /> Download PDF</button>
               </div>
             </div>
@@ -1275,7 +1419,8 @@ export default function PurchaseBills() {
       <div className="stats-grid stats-grid-4">
         <div className="stat-card">
           <div className="stat-icon stat-icon-purple"><ShoppingCart size={22} /></div>
-          <div><p className="stat-label">Total Purchases</p><h2 className="stat-value stat-value-purple">{formatCurrency(totalStats.total)}</h2></div>
+          <div><p className="stat-label">{returnStats.total > 0 ? 'Total Purchases (less returns)' : 'Total Purchases'}</p><h2 className="stat-value stat-value-purple">{formatCurrency(totalStats.total - returnStats.total)}</h2>
+            {returnStats.total > 0 && <p className="text-muted" style={{ fontSize: '0.72rem', margin: 0 }}>{formatCurrency(totalStats.total)} bought, {formatCurrency(returnStats.total)} returned</p>}</div>
         </div>
         {/* v1.10.83 (#123) - what is still to pay on the bills shown. */}
         <div className="stat-card">
@@ -1287,7 +1432,7 @@ export default function PurchaseBills() {
         </div>
         <div className="stat-card">
           <div className="stat-icon stat-icon-green"><ShoppingCart size={22} /></div>
-          <div><p className="stat-label">GST (ITC Eligible)</p><h2 className="stat-value stat-value-green">{formatCurrency(totalStats.tax)}</h2></div>
+          <div><p className="stat-label">GST (ITC Eligible)</p><h2 className="stat-value stat-value-green">{formatCurrency(totalStats.tax - returnStats.tax)}</h2></div>
         </div>
         <div className="stat-card">
           <div className="stat-icon stat-icon-blue"><ShoppingCart size={22} /></div>
@@ -1442,7 +1587,20 @@ export default function PurchaseBills() {
             </div>
 
             {/* Items */}
-            <h4 style={{ marginTop: '1rem', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>Items <HelpButton title="Items on the bill" doc="purchases#purchase-items" size={16} /></h4>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginTop: '1rem', marginBottom: '0.5rem' }}>
+              <h4 style={{ margin: 0, fontWeight: 600, fontSize: '0.9rem' }}>Items <HelpButton title="Items on the bill" doc="purchases#purchase-items" size={16} /></h4>
+              {/* v1.10.85 (#171, #160) - extra columns, off until wanted. */}
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <input type="checkbox" checked={showDiscountCol} disabled={showDiscountCol && !lineCols.discount}
+                  onChange={() => toggleLineCol('discount')} style={{ accentColor: 'var(--primary)' }} /> Discount column
+              </label>
+              {!isPo && (
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                  <input type="checkbox" checked={showSerialCol} disabled={showSerialCol && !lineCols.serial}
+                    onChange={() => toggleLineCol('serial')} style={{ accentColor: 'var(--primary)' }} /> Serial No. column
+                </label>
+              )}
+            </div>
             {/* Rendered once for all rows — a <datalist> is referenced by id,
                 so duplicating it per row would only bloat the DOM. */}
             {/* Same rule as the supplier list above — value only. */}
@@ -1465,6 +1623,14 @@ export default function PurchaseBills() {
                   <input type="text" className="form-input" value={item.name}
                     list="fgsb-item-history" autoComplete="off"
                     onChange={e => updateItemName(idx, e.target.value)}
+                    // #137 barcodes - a scanned (or typed) barcode + Enter puts in its product.
+                    // Only with Barcodes on, and not when a product is called exactly what was typed.
+                    onKeyDown={e => {
+                      if (e.key !== 'Enter' || !isModuleEnabled('barcodes', getEnabledModules())) return;
+                      const typed = (item.name || '').trim().toLowerCase();
+                      const hit = !products.some(pr => (pr.name || '').trim().toLowerCase() === typed) && findByBarcode(products, item.name);
+                      if (hit) { e.preventDefault(); updateItemName(idx, hit.name); }
+                    }}
                     placeholder={itemHistory.length ? 'Type or pick a previous item' : 'Item name'} />
                 </div>
                 <div className="form-group" style={{ flex: isPo ? 0.8 : 1, margin: 0 }}>
@@ -1483,19 +1649,52 @@ export default function PurchaseBills() {
                     onFocus={e => e.target.select()}
                     onChange={e => updateItem(idx, 'quantity', e.target.value)} />
                 </div>
-                {isPo && (
-                  <div className="form-group" style={{ flex: 0.8, margin: 0 }}>
-                    {idx === 0 && <label className="form-label">Unit</label>}
-                    <input type="text" className="form-input" value={item.unit || ''} list="fgsb-unit-list"
-                      autoComplete="off" onChange={e => updateItem(idx, 'unit', e.target.value)} placeholder="Nos" />
-                  </div>
-                )}
+                {(() => {
+                  // v1.10.85 (#148) - a product with a second unit: pick Pcs or Box.
+                  const altProduct = products.find(pr => hasAltUnit(pr) && (pr.name || '').trim().toLowerCase() === (item.name || '').trim().toLowerCase());
+                  if (altProduct) {
+                    return (
+                      <div className="form-group" style={{ flex: 0.8, margin: 0 }}>
+                        {idx === 0 && <label className="form-label">Unit</label>}
+                        <select className="form-input" aria-label={`Unit of ${item.name}`} value={lineFactor(item) !== 1 ? altProduct.altUnit : (altProduct.unit || 'Nos')}
+                          onChange={e => { const unit = e.target.value; setForm(prev => ({ ...prev, items: prev.items.map((x, i) => (i === idx ? lineInUnit(x, altProduct, unit, { kind: 'purchase' }) : x)) })); }}>
+                          <option value={altProduct.unit || 'Nos'}>{altProduct.unit || 'Nos'}</option>
+                          <option value={altProduct.altUnit}>{altProduct.altUnit} of {Number(altProduct.altFactor)}</option>
+                        </select>
+                      </div>
+                    );
+                  }
+                  return isPo && (
+                    <div className="form-group" style={{ flex: 0.8, margin: 0 }}>
+                      {idx === 0 && <label className="form-label">Unit</label>}
+                      <input type="text" className="form-input" value={item.unit || ''} list="fgsb-unit-list"
+                        autoComplete="off" onChange={e => updateItem(idx, 'unit', e.target.value)} placeholder="Nos" />
+                    </div>
+                  );
+                })()}
                 <div className="form-group" style={{ flex: 1, margin: 0 }}>
                   {idx === 0 && <label className="form-label">Rate</label>}
                   <input type="number" className="form-input" value={item.rate} min="0" step="any"
                     onFocus={e => e.target.select()}
                     onChange={e => updateItem(idx, 'rate', e.target.value)} />
                 </div>
+                {/* v1.10.85 (#171) - a discount off the line, % or an amount, before GST. */}
+                {showDiscountCol && (
+                  <div className="form-group" style={{ flex: 1, margin: 0 }}>
+                    {idx === 0 && <label className="form-label">Discount</label>}
+                    <div style={{ display: 'flex', gap: 2 }}>
+                      <input type="number" className="form-input" value={item.discount ?? ''} min="0" step="any" placeholder="0"
+                        aria-label={`Discount on line ${idx + 1}`} style={{ minWidth: 0 }}
+                        onFocus={e => e.target.select()}
+                        onChange={e => updateItem(idx, 'discount', e.target.value)} />
+                      <select className="form-input" value={item.discountType === 'percent' ? 'percent' : 'fixed'} style={{ width: 52, padding: '0 0.2rem' }}
+                        aria-label={`Discount type on line ${idx + 1}`} onChange={e => updateItem(idx, 'discountType', e.target.value)}>
+                        <option value="percent">%</option>
+                        <option value="fixed">₹</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
                 <div className="form-group" style={{ flex: isPo ? 0.95 : 0.75, margin: 0 }}>
                   {idx === 0 && <label className="form-label">Tax %</label>}
                   {/* v1.6.8 (P2 #29): "Other…" for jeweller 3% / diamond 0.25% /
@@ -1536,6 +1735,15 @@ export default function PurchaseBills() {
                     onFocus={e => e.target.select()}
                     onChange={e => updateItem(idx, 'cessPercent', e.target.value)} />
                 </div>
+                {/* v1.10.85 (#160) - the serial number / IMEI of each piece. */}
+                {showSerialCol && !isPo && (
+                  <div className="form-group" style={{ flex: '1 1 100%', margin: 0 }}>
+                    {idx === 0 && <label className="form-label">Serial No. / IMEI</label>}
+                    <input type="text" className="form-input" value={item.serialNo || ''} maxLength={2000}
+                      aria-label={`Serial numbers on line ${idx + 1}`} placeholder="One per piece, separated by commas"
+                      onChange={e => updateItem(idx, 'serialNo', e.target.value)} />
+                  </div>
+                )}
                 <div style={{ flex: '0 0 auto', marginBottom: idx === 0 ? 0 : 0 }}>
                   {form.items.length > 1 && (
                     <button className="icon-btn icon-btn-red" onClick={() => removeItem(idx)} title="Remove"><Trash2 size={15} /></button>
@@ -1578,7 +1786,12 @@ export default function PurchaseBills() {
               {!isPo && (
                 <div style={{ marginTop: '0.6rem' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.8rem', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={!!form.tdsOn} onChange={e => updateField('tdsOn', e.target.checked)}
+                    {/* v1.10.85 (#180) - ticking TDS on a bill dated from 1 April 2026 moves an old section to its 2025 place. */}
+                    <input type="checkbox" checked={!!form.tdsOn} onChange={e => {
+                      const on = e.target.checked;
+                      const moved = on && tdsSectionsFor(form.date) === TDS_SECTIONS_2025 ? movedSection(form.tdsSection, form.tdsRate, 'tds') : null;
+                      setForm(prev => ({ ...prev, tdsOn: on, ...(moved ? { tdsSection: moved.section, tdsRate: moved.rate } : {}) }));
+                    }}
                       style={{ width: 14, height: 14, accentColor: 'var(--primary)' }} />
                     <span><strong>TDS deducted</strong> — you keep back income-tax TDS from this supplier's payment and deposit it yourself</span>
                     <HelpButton title="TDS on a purchase bill" doc="purchases#purchase-tds" size={14} />
@@ -1588,10 +1801,13 @@ export default function PurchaseBills() {
                       <select className="form-input" aria-label="TDS section" value={form.tdsSection}
                         onChange={e => {
                           const code = e.target.value;
-                          const sec = TDS_SECTIONS.find(x => x.code === code);
+                          const sec = tdsSectionsFor(form.date).find(x => x.code === code);
                           setForm(prev => ({ ...prev, tdsSection: code, tdsRate: code === 'custom' ? prev.tdsRate : (sec?.rate ?? prev.tdsRate), tdsAmountManual: '' }));
                         }}>
-                        {TDS_SECTIONS.map(x => <option key={x.code} value={x.code}>{x.label}</option>)}
+                        {form.tdsSection && !tdsSectionsFor(form.date).some(x => x.code === form.tdsSection) && (
+                          <option value={form.tdsSection} disabled>{sectionOptionLabel(form.tdsSection)}</option>
+                        )}
+                        {tdsSectionsFor(form.date).map(x => <option key={x.code} value={x.code}>{x.label}</option>)}
                       </select>
                       <input type="number" step="any" min="0" max="100" className="form-input" aria-label="TDS rate %" placeholder="Rate %"
                         value={form.tdsRate} onChange={e => setForm(prev => ({ ...prev, tdsRate: e.target.value, tdsAmountManual: '' }))} />
@@ -1653,7 +1869,7 @@ export default function PurchaseBills() {
                   <th style={{ textAlign: 'right' }}>Total</th>
                   <th style={{ textAlign: 'right' }}>Balance due</th>
                   <th>Status</th>
-                  <th className="col-center">Actions</th>
+                  <th className="col-center col-sticky-actions">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1684,7 +1900,7 @@ export default function PurchaseBills() {
                           {PAYMENT_STATUSES.map(s => <option key={s} value={s}>{PURCHASE_STATUS_LABEL[s]}</option>)}
                         </select>
                       </td>
-                      <td>
+                      <td className="col-sticky-actions">
                         <div className="table-actions">
                           {/* v1.10.30 — quick View modal (no download).
                               Modal has a Download PDF button inside for
@@ -1693,6 +1909,10 @@ export default function PurchaseBills() {
                           {/* v1.10.83 (#123) - record / see payments to the supplier. */}
                           <button className="icon-btn icon-btn-green" onClick={() => setPayPurchase(p)} title={st === 'Paid' ? 'Payment history' : 'Record payment to supplier'} aria-label="Payments to supplier"><IndianRupee size={15} /></button>
                           <button className="icon-btn icon-btn-blue" onClick={() => openEdit(p)} title="Edit"><Edit3 size={15} /></button>
+                          {/* v1.10.85 (#168) - send goods back: a debit note against this bill. */}
+                          {canReturn(p) && (
+                            <button className="icon-btn" onClick={() => setReturnBill(p)} title="Return to supplier (debit note)" aria-label={`Return goods on ${p.invoiceNumber} to supplier`}><RotateCcw size={15} /></button>
+                          )}
                           <button className="icon-btn icon-btn-red" onClick={() => handleDelete(p.id)} title="Delete"><Trash2 size={15} /></button>
                         </div>
                       </td>

@@ -730,6 +730,70 @@ and confirm the browser opens on `http://localhost:47371` with no warning.
 
 ---
 
+## ERR-088 - A duplicated invoice lost its currency
+
+**Version:** v1.10.83 and later · fixed in v1.10.85
+**Reported by:** the maintainer, 14 Nov 2026: "if duplicate the invoice it should auto pick the same currency it currecnlty changes to what i am using for new"
+
+**Symptom** - Duplicate on a USD invoice opened the copy in INR (the currency
+of the last new invoice).
+
+**Cause** - the editor loads the saved defaults for new invoices from the
+server when it opens. Saved bills skipped that load (v1.10.75), but a
+duplicate or a conversion did not: the defaults arrived a moment after the
+bill's own options and replaced them, currency included.
+
+**Rule** - a bill opened from saved data (edit, duplicate, conversion) keeps
+its own options; the defaults for new invoices fill only a blank new invoice.
+
+**Guard** - smoke check "duplicating a USD invoice keeps USD".
+
+---
+
+## ERR-087 - A non-GST credit note kept its CGST/SGST columns
+
+**Version:** v1.10.84 and earlier · fixed in v1.10.85
+**Reported by:** @snvrahulkumarde-collab in #186: "in case of non gst supply customization does not allow me to remove cgst and sgst column from credit note or tax invoice"
+
+**Symptom** - GST switched off on an invoice (a non-GST supply), then the
+document type changed (or the invoice turned into a credit note): GST, and so
+the CGST/SGST columns, came back on.
+
+**Cause** - `handleTypeChange` and the convert path in InvoiceGenerator set
+`showGST` from the new type's default (`INVOICE_TYPES[type].showGST`, true for a
+credit note), throwing away the user's own choice.
+
+**Rule** - a type change keeps GST off when the user switched it off; only a
+bill of supply forces it off, and only coming from a bill of supply does the
+new type's own default apply.
+
+**Guard** - the rule is in both places in InvoiceGenerator.jsx (tagged
+`v1.10.85 (#186)`).
+
+---
+
+## ERR-086 - Nothing marked "Paid" ever reached the Cash book
+
+**Version:** v1.10.83 to v1.10.84 · fixed in v1.10.85
+**Reported by:** @snvrahulkumarde-collab in #184 ("Payment Status (paid) does not affect Cash"), confirmed by @Harsh705 for sales invoices too
+
+**Symptom** - choosing **Paid** in an invoice's or a purchase bill's status
+list recorded a payment, but the Cash book never showed it.
+
+**Cause** - `markPaidPatch` (utils.js) and `markPurchasePaid`
+(purchasePayments.js) recorded the payment with mode `other`. The Cash book
+counts only payments whose mode is cash (`isCash`), so every "Marked paid"
+payment was invisible to it, cash or not.
+
+**Rule** - a payment the app records for the user says how it was paid. Paid
+from a status list asks (Cash, UPI, Bank transfer, Cheque, Card, Other; the
+last answer first, `askPaidMode.js`); cancelling leaves the status as it was.
+
+**Guard** - `scripts/tax-test.mjs` and `scripts/purchase-payments-test.mjs`
+(the mode is stored), and `tests/smoke.mjs` "#184 marking it Paid asks how".
+
+---
+
 ## ERR-085 - "Needs a Quick Start" inside the app's own window during an update
 
 **Version:** the v1.10.84 test Setup (never released) · fixed before release

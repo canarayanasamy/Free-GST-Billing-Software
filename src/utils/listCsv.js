@@ -4,7 +4,10 @@
 // sample back through the same code the screens use. Headings are matched
 // loosely (case, spaces, %, / ignored), so the Products export imports back.
 import { toCsvLine } from '../utils.js';
-import { rowsToRecords, toNum, percentPart } from './bulkCsv.js';
+import { rowsToRecords, toNum, percentPart, norm } from './bulkCsv.js';
+import { barcodeProblem, normaliseBarcode } from './barcode.js';
+import { normaliseCategory, CATEGORY_LEVELS } from './stock.js';
+import { levelCsvFields, levelCsvHeaders, levelPricesFromRecord } from './priceLevels.js';
 
 const PRODUCT_FIELDS = {
   name: ['name', 'product', 'product name', 'item', 'item name'],
@@ -18,6 +21,11 @@ const PRODUCT_FIELDS = {
   description: ['description'],
   // v1.10.84 (#130) - Vyapar's item file says whether its prices hold the tax.
   taxInclusive: ['tax inclusive', 'tax inclusive (y/n)', 'inclusive of tax'],
+  // v1.10.85 (#137) - the product's barcode (optional, one per product).
+  barcode: ['barcode', 'bar code', 'barcode no', 'ean', 'upc'],
+  // v1.10.85 (#142, #148) - category (levels joined by >) and brand, optional.
+  category: ['category', 'item category', 'group', 'stock group', 'item group'],
+  brand: ['brand', 'make', 'brand name'],
 };
 
 const CLIENT_FIELDS = {
@@ -46,7 +54,7 @@ const dedupe = (existing) => {
 // import that read only the name; an exempt item with its HSN keeps its 0%).
 const blank = (v) => v === undefined || v === null || String(v).trim() === '';
 const FILL = {
-  hsn: blank, unit: blank, description: blank, stock: blank,
+  hsn: blank, unit: blank, description: blank, stock: blank, barcode: blank, category: blank, brand: blank,
   purchasePrice: (v) => blank(v) || Number(v) === 0,
   sellingPrice: (v) => blank(v) || Number(v) === 0,
   taxPercent: (v, p) => blank(v) || (Number(v) === 0 && blank(p.hsn)),
@@ -57,19 +65,33 @@ export function fillBlanks(saved, fresh) {
     if (isEmpty(saved[k], saved) && !FILL[k](fresh[k], fresh)) add[k] = fresh[k];
   }
   if ('sellingPrice' in add) add.rate = add.sellingPrice; // mirror for older readers
+  // v1.10.85 - a level price the saved product does not have yet.
+  const levelAdd = Object.fromEntries(Object.entries(fresh.levelPrices || {}).filter(([id]) => !(Number(saved.levelPrices?.[id]) > 0)));
+  if (Object.keys(levelAdd).length) add.levelPrices = { ...(saved.levelPrices || {}), ...levelAdd };
   return Object.keys(add).length ? { ...saved, ...add } : null;
 }
 
+// v1.10.85 - `levels` (Price levels on): each level's "<name> price" column
+// is read into levelPrices; a saved product without level prices gets them.
 // Rows (CSV text or a sheet) -> { products, updates, skipped, errors }. A row
 // with a problem is left out and named in errors. A name already saved is not
 // added again (importing twice is safe): its empty details are filled in
 // (updates), or it is skipped when there is nothing to fill.
-export function productsCsvToList(text, existing = []) {
-  const { records } = rowsToRecords(text, PRODUCT_FIELDS);
+// v1.10.85 - with Barcodes off (barcodes: false) the Barcode column is ignored.
+export function productsCsvToList(text, existing = [], levels = [], { barcodes = true } = {}) {
+  const fields = { ...PRODUCT_FIELDS, ...levelCsvFields(levels) };
+  let { records, unknown } = rowsToRecords(text, fields);
+  // With price levels on, a "... price" column that is not one of them (a
+  // level renamed since the export, a typo) is named on each row that fills
+  // it, instead of its prices being dropped without a word.
+  const stray = levels.length ? (unknown || []).filter((h) => /price$/i.test(String(h).trim())) : [];
+  if (stray.length) ({ records } = rowsToRecords(text, { ...fields, ...Object.fromEntries(stray.map((h, i) => [`stray${i}`, [h]])) }));
   const key = (n) => String(n || '').trim().toLowerCase();
   const saved = new Map((existing || []).map((p) => [key(p.name), p]));
   const seen = new Set();
   const out = { products: [], updates: [], skipped: 0, errors: [] };
+  // #137 - barcodes already taken: saved products, then rows added from this file.
+  const codes = (existing || []).filter((p) => p.barcode).map((p) => ({ id: p.id, name: p.name, barcode: p.barcode }));
   for (const r of records) {
     const name = r.name || '';
     if (!name) continue;
@@ -80,12 +102,33 @@ export function productsCsvToList(text, existing = []) {
     const bad = Object.entries(nums).find(([k, v]) => (k === 'stock' ? v !== null && !Number.isFinite(v) : !Number.isFinite(v)));
     if (bad) { out.errors.push(`Row ${r._line} (${name}): ${bad[0] === 'stock' ? 'stock' : bad[0] === 'taxPercent' ? 'GST %' : 'price'} must be a number`); continue; }
     if (nums.taxPercent < 0 || nums.taxPercent > 100) { out.errors.push(`Row ${r._line} (${name}): GST % must be 0 to 100`); continue; }
+    const lv = levelPricesFromRecord(r, levels, toNum);
+    if (lv.error) { out.errors.push(`Row ${r._line} (${name}): ${lv.error}`); continue; }
+    const strayCol = stray.find((h, i) => String(r[`stray${i}`] ?? '').trim());
+    if (strayCol) { out.errors.push(`Row ${r._line} (${name}): "${strayCol}" is not one of your price levels (${levelCsvHeaders(levels).join(', ')}, or Level 1 price...)`); continue; }
     if (seen.has(key(name))) { out.skipped++; continue; }
+    // A barcode is used only for a new product, or a saved one without one;
+    // one that another product has (saved, or higher up in the file) is refused.
+    const old = saved.get(key(name));
+    const code = barcodes ? normaliseBarcode(r.barcode) : '';
+    // Excel shows a long number code as 8.90123E+12 and saves it so: the digits are lost.
+    if (/^\d+(\.\d+)?e\+\d+$/i.test(code)) {
+      out.errors.push(`Row ${r._line} (${name}): the barcode ${code} was turned into a number by Excel and its digits are lost. In Excel, set the Barcode column to Text, type the codes again and save`);
+      continue;
+    }
+    const ownId = old ? old.id : `_row${r._line}`;
+    if (code && !(old && old.barcode)) {
+      const problem = barcodeProblem(code, codes, ownId);
+      if (problem) { out.errors.push(`Row ${r._line} (${name}): ${problem}`); continue; }
+      codes.push({ id: ownId, name, barcode: code });
+    }
     seen.add(key(name));
     // Our product prices are before tax: take the tax out of an inclusive one.
-    if (/^(y|yes|true|1)$/i.test(String(r.taxInclusive || '').trim()) && nums.taxPercent > 0) {
-      nums.sellingPrice = Math.round(nums.sellingPrice / (1 + nums.taxPercent / 100) * 100) / 100;
-    }
+    // v1.10.85 - the level prices too.
+    const inclusive = /^(y|yes|true|1)$/i.test(String(r.taxInclusive || '').trim()) && nums.taxPercent > 0;
+    const exTax = (v) => (inclusive ? Math.round(v / (1 + nums.taxPercent / 100) * 100) / 100 : v);
+    nums.sellingPrice = exTax(nums.sellingPrice);
+    const levelPrices = Object.fromEntries(Object.entries(lv.prices).map(([id, v]) => [id, exTax(v)]));
     const product = {
       name,
       ...(service ? { kind: 'service' } : {}),
@@ -98,13 +141,36 @@ export function productsCsvToList(text, existing = []) {
       // A service has no stock; goods with a blank stock are "not tracked yet".
       ...(!service && nums.stock !== null ? { stock: nums.stock } : {}),
       description: r.description || '',
+      ...(code ? { barcode: code } : {}),
+      // A category deeper than 4 levels keeps its first 4.
+      ...(r.category ? { category: normaliseCategory(r.category).split(' > ').slice(0, CATEGORY_LEVELS).join(' > ') } : {}),
+      ...(String(r.brand || '').trim() ? { brand: String(r.brand).trim() } : {}),
+      ...(Object.keys(levelPrices).length ? { levelPrices } : {}),
     };
-    const old = saved.get(key(name));
     if (!old) { out.products.push(product); continue; }
     const filled = fillBlanks(old, product);
     if (filled) out.updates.push(filled); else out.skipped++;
   }
   return out;
+}
+
+// v1.10.85 - a price level name that would make its CSV column ("<name>
+// price") read as another product column, or another level's: Selling
+// (Selling price), Sale, Purchase, Cost, MRP, Rate, "Level 2" and the like.
+// Settings refuses it. Returns the problem, or ''.
+const RESERVED_LEVEL_WORDS = ['mrp', 'sale', 'sales', 'selling', 'sell', 'purchase', 'cost', 'rate', 'price', 'box', 'list', 'unit', 'base', 'default'];
+export function levelNameProblem(names) {
+  const used = (names || []).map((n) => String(n ?? '').trim()).filter(Boolean);
+  const aliases = new Set(Object.values(PRODUCT_FIELDS).flat().map(norm));
+  for (const n of used) {
+    const k = norm(n);
+    if (RESERVED_LEVEL_WORDS.includes(k) || aliases.has(k) || aliases.has(norm(`${n} price`)) || /^(pricelevel|level)\d*$/.test(k)) {
+      return `"${n}" cannot be a price level name: its column "${n} price" would be read as another column. Try a name like Retail, Wholesale or Dealer.`;
+    }
+  }
+  const first = used.map((n) => used.findIndex((m) => norm(m) === norm(n)));
+  const dupAt = first.findIndex((f, i) => f !== i);
+  return dupAt >= 0 ? `Two price levels are both called "${used[first[dupAt]]}".` : '';
 }
 
 export function clientsCsvToList(text, existing = []) {
@@ -122,9 +188,9 @@ export function clientsCsvToList(text, existing = []) {
 
 // Sample files (demo data, not real businesses) for "Download sample file".
 export const PRODUCTS_SAMPLE = [
-  toCsvLine(['Name', 'Type', 'HSN/SAC', 'Unit', 'Purchase Price', 'Selling Price', 'GST %', 'Stock', 'Description']),
-  toCsvLine(['Demo A4 Paper Ream 75 GSM', 'Goods', '4802', 'Nos', 220, 280, 18, 50, 'Sample goods row - replace with your own']),
-  toCsvLine(['Demo Printing service', 'Service', '998912', 'Page', '', 5, 18, '', 'Sample service row - a service has no stock']),
+  toCsvLine(['Name', 'Type', 'HSN/SAC', 'Unit', 'Purchase Price', 'Selling Price', 'GST %', 'Stock', 'Description', 'Barcode']),
+  toCsvLine(['Demo A4 Paper Ream 75 GSM', 'Goods', '4802', 'Nos', 220, 280, 18, 50, 'Sample goods row - replace with your own', '']),
+  toCsvLine(['Demo Printing service', 'Service', '998912', 'Page', '', 5, 18, '', 'Sample service row - a service has no stock', '']),
 ].join('\n');
 
 export const CLIENTS_SAMPLE = [
