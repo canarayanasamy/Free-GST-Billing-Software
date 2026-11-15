@@ -1379,7 +1379,7 @@ function phoneCertificate() {
     if (certStillGood(cert, key)) return { key, cert, fingerprint256: new crypto.X509Certificate(cert).fingerprint256 };
   } catch { /* none yet */ }
   const isIp = (h) => /^\d+\.\d+\.\d+\.\d+$/.test(h);
-  const made = makeSelfSignedCert({ names: phoneHostNames().filter((h) => !isIp(h)), ips: [...lanAddresses(), ...PHONE_EXTRA_HOSTS.filter(isIp)], commonName: `Free GST Billing on ${os.hostname()}` });
+  const made = makeSelfSignedCert({ names: phoneHostNames().filter((h) => !isIp(h)), ips: [...lanAddresses(), ...PHONE_EXTRA_HOSTS.filter(isIp)], commonName: `The Entry Makers on ${os.hostname()}` });
   makeDir(PHONE_DIR);
   fs.writeFileSync(PHONE_KEY, made.key, { mode: 0o600 });
   fs.writeFileSync(PHONE_CERT, made.cert);
